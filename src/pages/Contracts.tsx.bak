@@ -1,0 +1,293 @@
+import React, { useState, useRef } from 'react';
+import { FileText, Upload, ArrowRight, Download, AlertTriangle, CheckCircle2 } from 'lucide-react';
+import { extractTextFromPdf } from '../utils/pdfParser';
+import { getGemini } from '../services/gemini';
+import { retrieveChunks, formatRetrievedContext } from '../services/retrieval';
+import { LoadingSteps } from '../components/LoadingSteps';
+
+export const Contracts: React.FC = () => {
+  const [file, setFile] = useState<File | null>(null);
+  const [checks, setChecks] = useState({
+    exportControl: true,
+    endUse: true,
+    reExport: true,
+    forceMajeure: true,
+    auditRights: true,
+    regulatoryChange: true
+  });
+  
+  const [isLoading, setIsLoading] = useState(false);
+  const [loadingSteps, setLoadingSteps] = useState<string[]>([]);
+  const [currentStep, setCurrentStep] = useState(0);
+  const [result, setResult] = useState<any>(null);
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selected = e.target.files?.[0];
+    if (selected && selected.type === 'application/pdf') {
+      setFile(selected);
+    } else {
+      alert('Please upload a PDF contract.');
+    }
+  };
+
+  const runAnalysis = async () => {
+    if (!file) return;
+    setIsLoading(true);
+    setResult(null);
+
+    try {
+      const steps = [
+        '📄 Extracting contract clauses...',
+        '🇮🇳 Retrieving SCOMET clause requirements...',
+        '🇺🇸 Retrieving EAR clause requirements...',
+        '⚖️ Cross-jurisdiction clause analysis...',
+        '✍️ Generating clause language...'
+      ];
+      setLoadingSteps(steps);
+      setCurrentStep(0);
+
+      const contractText = await extractTextFromPdf(file);
+      const dynamicQuery = contractText.substring(0, 500);
+      
+      setCurrentStep(1);
+      const scometChunks = await retrieveChunks(dynamicQuery, ['SCOMET_INDIA'], 5);
+      
+      setCurrentStep(2);
+      const earChunks = await retrieveChunks(dynamicQuery, ['EAR_US'], 5);
+
+      setCurrentStep(3);
+      const context = formatRetrievedContext([...scometChunks, ...earChunks]);
+      
+      setCurrentStep(4);
+      const prompt = `
+You are SemiShield, an AI-powered semiconductor trade compliance copilot.
+Perform a Contract Intelligence review based ONLY on the retrieved regulatory chunks.
+
+CONTRACT TEXT:
+${contractText.substring(0, 5000)}
+
+RETRIEVED REGULATORY CONTEXT:
+${context}
+
+Provide a JSON response with the following structure:
+{
+  "riskScore": number, // 0-100
+  "riskLevel": "HIGH" | "MEDIUM" | "LOW",
+  "summary": string,
+  "clauses": [
+    {
+      "name": string, // e.g., "End-Use Confirmation"
+      "status": "ADEQUATE" | "WEAK" | "MISSING",
+      "jurisdiction": "SCOMET" | "EAR" | "Both",
+      "riskIfMissing": string,
+      "generatedText": string, // Ready to insert clause text
+      "citation": string
+    }
+  ]
+}
+Return ONLY valid JSON.
+`;
+
+      const ai = getGemini();
+      const chat = ai.chats.create({
+        model: 'gemini-3.1-pro-preview',
+        config: { temperature: 0.2 }
+      });
+
+      const response = await chat.sendMessage({ message: prompt });
+      const jsonStr = response.text?.replace(/```json/g, '').replace(/```/g, '').trim() || '{}';
+      const parsedResult = JSON.parse(jsonStr);
+      
+      setResult(parsedResult);
+
+    } catch (error) {
+      console.error('Contract Analysis error:', error);
+      alert('Analysis failed. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <div className="flex flex-col md:flex-row min-h-[calc(100vh-64px)] bg-slate-50">
+      {/* Left Panel - Input */}
+      <div className="w-full md:w-1/4 bg-white border-r border-slate-200 p-6 overflow-y-auto">
+        <div className="mb-8">
+          <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
+            <FileText className="h-6 w-6 text-blue-600" /> Contract Intelligence
+          </h1>
+          <p className="text-slate-500 mt-2 text-sm">Audit agreements for missing export control clauses.</p>
+        </div>
+
+        <div className="space-y-6">
+          <div 
+            className={`border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-colors ${
+              file ? 'border-blue-500 bg-blue-50' : 'border-slate-300 hover:border-blue-400 hover:bg-slate-50'
+            }`}
+            onClick={() => fileInputRef.current?.click()}
+          >
+            <input 
+              type="file" 
+              accept=".pdf" 
+              className="hidden" 
+              ref={fileInputRef}
+              onChange={handleFileUpload}
+            />
+            {file ? (
+              <div className="flex flex-col items-center">
+                <FileText className="h-8 w-8 text-blue-600 mb-2" />
+                <span className="font-medium text-blue-900 text-sm">{file.name}</span>
+              </div>
+            ) : (
+              <div className="flex flex-col items-center">
+                <Upload className="h-8 w-8 text-slate-400 mb-2" />
+                <span className="font-medium text-slate-700 text-sm">Drop contract PDF here</span>
+              </div>
+            )}
+          </div>
+
+          <div className="space-y-3">
+            <h3 className="text-sm font-semibold text-slate-800 uppercase tracking-wider mb-2">Review Scope</h3>
+            {Object.entries(checks).map(([key, value]) => (
+              <label key={key} className="flex items-center gap-2 cursor-pointer">
+                <input 
+                  type="checkbox" 
+                  checked={value} 
+                  onChange={(e) => setChecks({...checks, [key]: e.target.checked})}
+                  className="w-4 h-4 text-blue-600 rounded border-slate-300 focus:ring-blue-500"
+                />
+                <span className="text-sm text-slate-700 capitalize">{key.replace(/([A-Z])/g, ' $1').trim()}</span>
+              </label>
+            ))}
+          </div>
+
+          <button
+            onClick={runAnalysis}
+            disabled={!file || isLoading}
+            className="w-full bg-blue-600 text-white font-bold py-3 px-4 rounded-xl hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
+          >
+            Analyze Contract <ArrowRight className="h-4 w-4" />
+          </button>
+        </div>
+      </div>
+
+      {/* Center & Right Panels - Results */}
+      <div className="w-full md:w-3/4 flex flex-col md:flex-row overflow-hidden">
+        {isLoading ? (
+          <div className="flex-1 flex items-center justify-center p-6">
+            <LoadingSteps steps={loadingSteps} currentStepIndex={currentStep} />
+          </div>
+        ) : result ? (
+          <>
+            {/* Center Panel - Audit Table */}
+            <div className="w-full md:w-3/5 p-6 overflow-y-auto border-r border-slate-200 bg-white">
+              <div className={`p-6 rounded-2xl border mb-6 ${
+                result.riskLevel === 'HIGH' ? 'bg-red-50 border-red-200' :
+                result.riskLevel === 'MEDIUM' ? 'bg-amber-50 border-amber-200' :
+                'bg-green-50 border-green-200'
+              }`}>
+                <div className="flex items-center gap-4">
+                  <div className={`text-4xl font-black ${
+                    result.riskLevel === 'HIGH' ? 'text-red-600' :
+                    result.riskLevel === 'MEDIUM' ? 'text-amber-600' :
+                    'text-green-600'
+                  }`}>
+                    {result.riskScore}/100
+                  </div>
+                  <div>
+                    <h2 className={`text-xl font-bold ${
+                      result.riskLevel === 'HIGH' ? 'text-red-900' :
+                      result.riskLevel === 'MEDIUM' ? 'text-amber-900' :
+                      'text-green-900'
+                    }`}>
+                      {result.riskLevel} RISK
+                    </h2>
+                    <p className={`text-sm font-medium ${
+                      result.riskLevel === 'HIGH' ? 'text-red-700' :
+                      result.riskLevel === 'MEDIUM' ? 'text-amber-700' :
+                      'text-green-700'
+                    }`}>
+                      {result.summary}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <h3 className="text-lg font-bold text-slate-900 mb-4">Clause Audit</h3>
+              <div className="space-y-4">
+                {result.clauses.map((clause: any, idx: number) => (
+                  <div key={idx} className="border border-slate-200 rounded-xl p-4 hover:bg-slate-50 transition-colors">
+                    <div className="flex justify-between items-start mb-2">
+                      <h4 className="font-bold text-slate-800">{clause.name}</h4>
+                      <span className={`px-2 py-1 rounded text-xs font-bold ${
+                        clause.status === 'MISSING' ? 'bg-red-100 text-red-800' :
+                        clause.status === 'WEAK' ? 'bg-amber-100 text-amber-800' :
+                        'bg-green-100 text-green-800'
+                      }`}>
+                        {clause.status}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="text-xs font-medium text-slate-500 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
+                        {clause.jurisdiction}
+                      </span>
+                    </div>
+                    <p className="text-sm text-slate-600">
+                      <span className="font-semibold">Risk if missing:</span> {clause.riskIfMissing}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Right Panel - Generated Clauses */}
+            <div className="w-full md:w-2/5 p-6 overflow-y-auto bg-slate-50">
+              <h3 className="text-lg font-bold text-slate-900 mb-4">Generated Clause Language</h3>
+              <div className="space-y-6">
+                {result.clauses.filter((c: any) => c.status !== 'ADEQUATE').map((clause: any, idx: number) => (
+                  <div key={idx} className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
+                    <div className="px-4 py-3 bg-slate-100 border-b border-slate-200 flex justify-between items-center">
+                      <h4 className="font-bold text-slate-800 text-sm">{clause.name}</h4>
+                      <button 
+                        onClick={() => {
+                          navigator.clipboard.writeText(clause.generatedText);
+                          alert('Copied to clipboard!');
+                        }}
+                        className="text-xs bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 py-1 px-2 rounded transition-colors"
+                      >
+                        Copy Clause
+                      </button>
+                    </div>
+                    <div className="p-4">
+                      <p className="text-xs text-slate-500 mb-2 font-medium">[Insert in appropriate section]</p>
+                      <pre className="text-sm text-slate-800 font-serif whitespace-pre-wrap leading-relaxed bg-slate-50 p-3 rounded border border-slate-100">
+                        "{clause.generatedText}"
+                      </pre>
+                      <div className="mt-3 text-xs text-slate-500">
+                        <span className="font-semibold">Source:</span> {clause.citation}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              
+              <div className="mt-8">
+                <button className="w-full bg-white border border-slate-300 text-slate-700 font-medium py-3 px-4 rounded-xl hover:bg-slate-50 transition-colors flex items-center justify-center gap-2">
+                  <Download className="h-4 w-4" /> Download Annotated Report
+                </button>
+              </div>
+            </div>
+          </>
+        ) : (
+          <div className="flex-1 flex flex-col items-center justify-center text-center text-slate-500 p-6">
+            <FileText className="h-16 w-16 text-slate-200 mb-4" />
+            <p className="text-lg font-medium text-slate-600">Ready to Analyze</p>
+            <p className="max-w-md mt-2">Upload a contract to identify missing export control clauses and generate ready-to-insert legal language.</p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
