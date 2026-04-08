@@ -2,6 +2,7 @@ import { callGemini } from './gemini';
 import { getSupabase } from '../services/supabase';
 import { embedText } from '../services/embeddings';
 import { ICP_CHAIN, GLOBAL_SYSTEM_PROMPT } from './prompts';
+import { generateHypotheticalDoc } from './hyde';
 
 export interface ICPGap {
   component: string;
@@ -186,7 +187,10 @@ export async function runICPChain(
   if (jurisdictions.includes('SCOMET_INDIA')) {
     onProgress?.('Mapping against SCOMET requirements...');
     const scometIcpQuery = `SCOMET India DGFT export control program ICP requirements: management commitment policy statement export control officer appointment SCOMET list Category 8A 6A 3A product classification procedures customer end-user screening transaction red flag review license determination recordkeeping 5 years employee training audit monitoring violation reporting escalation third-party intermediary controls technology transfer deemed export sanctions entity list screening DGFT Foreign Trade Policy`;
-    const scometIcpEmbedding = await embedText(scometIcpQuery);
+    const scometIcpHyde = await generateHypotheticalDoc(
+      `SCOMET India ICP internal compliance program requirements: ${scometIcpQuery}`
+    );
+    const scometIcpEmbedding = await embedText(scometIcpHyde);
     const { data: scometChunks } = await supabase.rpc('hybrid_search', {
       query_embedding: scometIcpEmbedding,
       query_text: scometIcpQuery,
@@ -205,7 +209,10 @@ export async function runICPChain(
   if (jurisdictions.includes('EAR_US')) {
     onProgress?.('Mapping against EAR requirements...');
     const earIcpQuery = `US EAR BIS export compliance program ICP requirements: management commitment export control officer ECCN classification denied party screening license determination EAR99 recordkeeping 5 years training audit monitoring violation reporting deemed export technology transfer OFAC sanctions Consolidated Screening List Part 744 Part 764 15 CFR Bureau of Industry Security`;
-    const earIcpEmbedding = await embedText(earIcpQuery);
+    const earIcpHyde = await generateHypotheticalDoc(
+      `US EAR BIS export compliance program requirements: ${earIcpQuery}`
+    );
+    const earIcpEmbedding = await embedText(earIcpHyde);
     const { data: earChunks } = await supabase.rpc('hybrid_search', {
       query_embedding: earIcpEmbedding,
       query_text: earIcpQuery,

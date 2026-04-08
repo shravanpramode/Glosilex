@@ -1,10 +1,7 @@
 import fs from 'fs';
-import { createRequire } from 'module';
+import PDFParser from 'pdf2json';
 import { createClient } from '@supabase/supabase-js';
 import dotenv from 'dotenv';
-
-const require = createRequire(import.meta.url);
-const pdf = require('pdf-parse');
 
 dotenv.config();
 
@@ -18,7 +15,9 @@ for (let i = 0; i < args.length; i++) {
   }
 }
 
-const { file, name, jurisdiction, date, url } = params;
+const { file, name, jurisdiction, date, url, skip } = params;
+const SKIP_CHUNKS = parseInt(skip || '0', 10);
+
 
 if (!file || !name || !jurisdiction) {
   console.error("Usage: node ingest.js --file <path> --name <name> --jurisdiction <SCOMET_INDIA|EAR_US> [--date <date>] [--url <url>]");
@@ -124,15 +123,30 @@ function chunkText(text, jurisdiction) {
 }
 
 async function main() {
-  console.log(`Reading PDF: ${file}`);
   if (!fs.existsSync(file)) {
     console.error(`File not found: ${file}`);
     process.exit(1);
   }
   
-  const dataBuffer = fs.readFileSync(file);
-  const data = await pdf(dataBuffer);
-  const text = data.text;
+  
+
+const fileExt = file.split('.').pop().toLowerCase();
+  console.log(`Reading ${fileExt.toUpperCase()}: ${file}`);
+
+  const text = fileExt === 'txt' || fileExt === 'csv'
+    ? fs.readFileSync(file, 'utf8')
+    : await new Promise((resolve, reject) => {
+        const parser = new PDFParser(null, 1);
+        parser.on('pdfParser_dataReady', () => {
+          resolve(parser.getRawTextContent());
+        });
+        parser.on('pdfParser_dataError', (err) => {
+          reject(err.parserError);
+        });
+        parser.loadPDF(file);
+      });
+
+
 
   console.log(`Chunking text...`);
   const chunks = chunkText(text, jurisdiction);
@@ -140,8 +154,14 @@ async function main() {
 
   let currentSection = "General";
 
-  for (let i = 0; i < chunks.length; i++) {
-    const chunk = chunks[i];
+  
+for (let i = 0; i < chunks.length; i++) {
+  if (i < SKIP_CHUNKS) {
+    console.log(`Skipping chunk ${i + 1} (already ingested)`);
+    continue;
+  }
+  const chunk = chunks[i];
+
 
     // Extract clause ID
     let clause_id = null;
@@ -167,13 +187,14 @@ async function main() {
       source_url: url || ""
     };
 
-    // Embed using Google text-embedding-004
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/text-embedding-004:embedContent?key=${GEMINI_API_KEY}`, {
+    // Embed using Google gemini-embedding-001
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:embedContent?key=${GEMINI_API_KEY}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: "models/text-embedding-004",
-        content: { parts: [{ text: chunk }] }
+        model: "models/gemini-embedding-001",
+        content: { parts: [{ text: chunk }] },
+	outputDimensionality: 768
       })
     });
 

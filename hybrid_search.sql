@@ -66,9 +66,9 @@ BEGIN
     c.category,
     c.section,
     c.clause_id,
-    c.page,
+    (c.metadata->>'page')::integer as page,
     c.content,
-    c.source_url,
+    c.metadata->>'source_url' as source_url,
     r.similarity::float,
     r.rrf_score::float as rank_score
   FROM rrf_scores r

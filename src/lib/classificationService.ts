@@ -2,7 +2,7 @@ import { callGemini } from './gemini';
 import { getSupabase } from '../services/supabase';
 import { embedText } from '../services/embeddings';
 import { CLASSIFICATION_CHAIN, GLOBAL_SYSTEM_PROMPT } from './prompts';
-
+import { generateHypotheticalDoc } from './hyde';
 
 export interface ClassificationResult {
   id?: string;
@@ -181,9 +181,12 @@ export async function runClassificationChain(
   let allChunks: any[] = [];
 
   if (jurisdictions.includes('SCOMET_INDIA')) {
-    onProgress?.('Retrieving SCOMET regulatory context...');
+    onProgress?.('Retrieving SCOMET regulatory context...');    
     const scometQuery = buildScometQuery(extractedSpecs);
-    const scometEmbedding = await embedText(scometQuery);
+    const scometHyde = await generateHypotheticalDoc(
+      `SCOMET India export control classification for: ${scometQuery}`
+    );
+    const scometEmbedding = await embedText(scometHyde); // embed hypothetical doc, not the query
     const { data: scometChunks } = await supabase.rpc('hybrid_search', {
       query_embedding: scometEmbedding,
       query_text: scometQuery,
@@ -208,7 +211,10 @@ export async function runClassificationChain(
   if (jurisdictions.includes('EAR_US')) {
     onProgress?.('Retrieving EAR regulatory context...');
     const earQuery = buildEarQuery(extractedSpecs);
-    const earEmbedding = await embedText(earQuery);
+    const earHyde = await generateHypotheticalDoc(
+      `US EAR BIS export control classification for: ${earQuery}`
+    );
+    const earEmbedding = await embedText(earHyde);
     const { data: earChunks } = await supabase.rpc('hybrid_search', {
       query_embedding: earEmbedding,
       query_text: earQuery,

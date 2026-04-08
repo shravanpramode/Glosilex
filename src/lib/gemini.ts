@@ -1,15 +1,14 @@
-import { GoogleGenAI } from '@google/genai';
 import { embedText } from '../services/embeddings';
 import { getSupabase } from '../services/supabase';
 import { GLOBAL_SYSTEM_PROMPT, QA_PROMPT } from './prompts';
+
 
 // ── Change this one constant to switch models across the entire app ────────────
 const GEMINI_MODEL = 'gemini-2.5-flash';
 // ─────────────────────────────────────────────────────────────────────────────
 
-export const getGemini = () => new GoogleGenAI({
-  apiKey: import.meta.env.VITE_GEMINI_API_KEY
-});
+import { getGemini } from '../services/gemini';
+export { getGemini };
 
 // ── Retry helper ──────────────────────────────────────────────────────────────
 // No TypeScript generics used — takes and returns Promise<string> directly.

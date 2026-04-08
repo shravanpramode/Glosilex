@@ -2,6 +2,7 @@ import { callGemini } from './gemini';
 import { getSupabase } from '../services/supabase';
 import { embedText } from '../services/embeddings';
 import { CONTRACT_CHAIN, GLOBAL_SYSTEM_PROMPT } from './prompts';
+import { generateHypotheticalDoc } from './hyde';
 
 export interface ClauseAudit {
   category: string;
@@ -80,7 +81,10 @@ export async function runContractChain(
 
   if (jurisdictions.includes('SCOMET_INDIA')) {
     const scometContractQuery = `SCOMET export control contract clauses for: ${productContext}. Required: SCOMET license authorization reference number export compliance end-use certificate end-user statement re-export restriction prohibited diversion force majeure regulatory change DGFT India audit rights suspension termination license denial revocation notification contractual obligation SCOMET List`;
-    const scometContractEmbedding = await embedText(scometContractQuery);
+    const scometContractHyde = await generateHypotheticalDoc(
+      `SCOMET India export control contract clause requirements: ${scometContractQuery}`
+    );
+    const scometContractEmbedding = await embedText(scometContractHyde);
     const { data: scometChunks } = await supabase.rpc('hybrid_search', {
       query_embedding: scometContractEmbedding,
       query_text: scometContractQuery,
@@ -94,7 +98,10 @@ export async function runContractChain(
   let earContext = '';
   if (jurisdictions.includes('EAR_US')) {
     const earContractQuery = `US EAR BIS export control contract clauses for: ${productContext}. Required: export license number ECCN classification re-export restriction prohibited end-use end-user diversion clause license exception conditions deemed export technology transfer deemed re-export FDPR foreign direct product rule audit right regulatory change notification termination right 15 CFR Part 736 Part 744 BIS compliance`;
-    const earContractEmbedding = await embedText(earContractQuery);
+    const earContractHyde = await generateHypotheticalDoc(
+      `US EAR BIS export control contract clause requirements: ${earContractQuery}`
+    );
+    const earContractEmbedding = await embedText(earContractHyde);
     const { data: earChunks } = await supabase.rpc('hybrid_search', {
       query_embedding: earContractEmbedding,
       query_text: earContractQuery,
