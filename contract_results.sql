@@ -8,5 +8,8 @@ CREATE TABLE IF NOT EXISTS contract_results (
   generated_clauses jsonb,
   overall_risk text,
   risk_score integer,
+  confidence_score float,
+  confidence_note text,
+  summary text,
   created_at timestamptz DEFAULT now()
 );

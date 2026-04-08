@@ -1,3 +1,5 @@
+import { getGemini } from '../services/gemini';
+export { getGemini };
 import { embedText } from '../services/embeddings';
 import { getSupabase } from '../services/supabase';
 import { GLOBAL_SYSTEM_PROMPT, QA_PROMPT } from './prompts';
@@ -6,9 +8,6 @@ import { GLOBAL_SYSTEM_PROMPT, QA_PROMPT } from './prompts';
 // ── Change this one constant to switch models across the entire app ────────────
 const GEMINI_MODEL = 'gemini-2.5-flash';
 // ─────────────────────────────────────────────────────────────────────────────
-
-import { getGemini } from '../services/gemini';
-export { getGemini };
 
 // ── Retry helper ──────────────────────────────────────────────────────────────
 // No TypeScript generics used — takes and returns Promise<string> directly.
