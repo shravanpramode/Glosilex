@@ -14,13 +14,35 @@ export interface Chunk {
   metadata: ChunkMetadata;
 }
 
+export function cleanText(text: string): string {
+  let cleaned = text;
+  
+  // 1. Remove all page break markers matching the pattern: "----------------Page (X) Break----------------"
+  cleaned = cleaned.replace(/-+Page \(\d+\) Break-+/gi, '');
+  
+  // 2. Remove sequences of 3 or more consecutive dashes: ---
+  cleaned = cleaned.replace(/-{3,}/g, '');
+  
+  // 3. Remove repeated underscores of 5 or more: _____
+  cleaned = cleaned.replace(/_{5,}/g, '');
+  
+  // 4. Normalize multiple blank lines to single blank lines
+  cleaned = cleaned.replace(/\n[ \t]*\n([ \t]*\n)+/g, '\n\n');
+  
+  // 5. Trim leading/trailing whitespace
+  return cleaned.trim();
+}
+
 export function chunkText(text: string, metadata: Partial<ChunkMetadata>): Chunk[] {
   const chunks: Chunk[] = [];
   const MAX_CHUNK_SIZE = 512;
   const OVERLAP = 100;
 
+  // Clean the text before chunking
+  const cleanedText = cleanText(text);
+
   // Simple structure-aware chunking fallback to fixed size
-  const paragraphs = text.split(/\n\s*\n/);
+  const paragraphs = cleanedText.split(/\n\s*\n/);
   
   let currentChunk = '';
 

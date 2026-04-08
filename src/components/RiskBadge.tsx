@@ -2,9 +2,10 @@ import React from 'react';
 
 interface Props {
   level: 'HIGH' | 'MEDIUM' | 'LOW' | string;
+  size?: 'sm' | 'md' | 'lg';
 }
 
-export const RiskBadge: React.FC<Props> = ({ level }) => {
+export const RiskBadge: React.FC<Props> = ({ level, size = 'md' }) => {
   const isHigh = level.toUpperCase().includes('HIGH') || level.toUpperCase().includes('RED');
   const isMedium = level.toUpperCase().includes('MEDIUM') || level.toUpperCase().includes('AMBER');
   const isLow = level.toUpperCase().includes('LOW') || level.toUpperCase().includes('GREEN');
@@ -23,9 +24,19 @@ export const RiskBadge: React.FC<Props> = ({ level }) => {
     icon = '🟢';
   }
 
+  let cleanLevel = level;
+  const match = level.match(/(HIGH|MEDIUM|LOW)\s*RISK/i);
+  if (match) {
+    cleanLevel = match[0];
+  } else {
+    cleanLevel = level.replace(/[🔴🟠🟢]/g, '').trim();
+  }
+
+  const sizeClass = size === 'sm' ? 'px-2 py-0.5 text-[10px]' : size === 'lg' ? 'px-3 py-1 text-sm' : 'px-2.5 py-0.5 text-xs';
+
   return (
-    <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold border ${colorClass}`}>
-      {icon} {level.toUpperCase()}
+    <span className={`inline-flex items-center gap-1.5 rounded-full font-semibold border ${sizeClass} ${colorClass}`}>
+      {icon} {cleanLevel.toUpperCase()}
     </span>
   );
 };

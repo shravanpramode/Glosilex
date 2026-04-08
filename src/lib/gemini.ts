@@ -3,9 +3,56 @@ import { embedText } from '../services/embeddings';
 import { getSupabase } from '../services/supabase';
 import { GLOBAL_SYSTEM_PROMPT, QA_PROMPT } from './prompts';
 
+// ── Change this one constant to switch models across the entire app ────────────
+const GEMINI_MODEL = 'gemini-2.5-flash';
+// ─────────────────────────────────────────────────────────────────────────────
+
 export const getGemini = () => new GoogleGenAI({
   apiKey: import.meta.env.VITE_GEMINI_API_KEY
 });
+
+// ── Retry helper ──────────────────────────────────────────────────────────────
+// No TypeScript generics used — takes and returns Promise<string> directly.
+// Retries on 503 UNAVAILABLE and 429 RESOURCE_EXHAUSTED with exponential backoff.
+// Attempt schedule: instant → wait 3s → wait 9s → wait 27s → throw
+async function callWithRetry(fn: () => Promise<string>): Promise<string> {
+  const BASE_DELAY_MS = 3000;
+  const MAX_ATTEMPTS = 4;
+  let lastError: any;
+
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    try {
+      return await fn();
+    } catch (err: any) {
+      lastError = err;
+      const msg: string = (err && err.message) ? err.message : JSON.stringify(err);
+
+      const isRetryable = (
+        msg.includes('503') ||
+        msg.includes('UNAVAILABLE') ||
+        msg.includes('429') ||
+        msg.includes('RESOURCE_EXHAUSTED')
+      );
+
+      if (!isRetryable || attempt === MAX_ATTEMPTS) {
+        throw err;
+      }
+
+      // Jitter ±20% so parallel chain steps don't all hammer the API at once
+      const jitter = 0.8 + Math.random() * 0.4;
+      const delayMs = BASE_DELAY_MS * Math.pow(3, attempt - 1) * jitter;
+      const label = msg.includes('429') ? '429 rate-limit' : '503 unavailable';
+      console.warn(
+        '[Silex] Gemini ' + label + ' — retrying in ' +
+        Math.round(delayMs / 1000) + 's (attempt ' + attempt + '/' + MAX_ATTEMPTS + ')'
+      );
+      await new Promise(function(resolve) { setTimeout(resolve, delayMs); });
+    }
+  }
+
+  throw lastError;
+}
+// ─────────────────────────────────────────────────────────────────────────────
 
 export async function callGemini(
   systemPrompt: string,
@@ -27,13 +74,19 @@ export async function callGemini(
     config.responseMimeType = options.responseMimeType;
   }
 
-  const chat = ai.chats.create({
-    model: 'gemini-2.5-pro',
-    config
+  return callWithRetry(function() {
+    const chat = ai.chats.create({
+      model: GEMINI_MODEL,
+      config
+    });
+    return chat.sendMessage({ message: userPrompt }).then(function(response) {
+      const text = response.text || '';
+      if (!text.trim()) {
+        throw new Error('[Silex] Gemini returned an empty response — possible safety filter or token limit.');
+      }
+      return text;
+    });
   });
-
-  const response = await chat.sendMessage({ message: userPrompt });
-  return response.text || '';
 }
 
 export async function retrieveAndAnswer(
@@ -52,9 +105,15 @@ export async function retrieveAndAnswer(
   });
 
   const retrievedChunks = chunks || [];
-  const formattedContext = retrievedChunks.map((chunk: any) =>
-    `[Source: ${chunk.document_name} | Section: ${chunk.section} | Clause: ${chunk.clause_id}]\n${chunk.content}`
-  ).join('\n\n');
+  
+  // Sanitize context: remove potential prompt injection triggers or excessive whitespace
+  const formattedContext = retrievedChunks.map((chunk: any) => {
+    const sanitizedContent = chunk.content
+      .replace(/<\|.*?\|>/g, '') // Remove potential control tokens
+      .replace(/\[\[.*?\]\]/g, '') // Remove potential internal markers
+      .trim();
+    return `[Source: ${chunk.document_name} | Section: ${chunk.section} | Clause: ${chunk.clause_id}]\n${sanitizedContent}`;
+  }).join('\n\n');
 
   const systemPrompt = `${GLOBAL_SYSTEM_PROMPT}\n\n${QA_PROMPT}`;
   const answer = await callGemini(systemPrompt, query, formattedContext);

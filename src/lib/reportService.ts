@@ -12,6 +12,10 @@ export interface NormalizedReport {
   riskScore?: number;
   summary: string;
   jurisdictions: string[];
+  jurisdictionDisplay?: string;
+  clausesAssessed?: number;
+  confidenceScore?: number;
+  confidenceNote?: string;
   findings: {
     scomet?: string;
     ear?: string;
@@ -37,6 +41,17 @@ export interface NormalizedReport {
     listMatch: string;
   }>;
   extractedSpecs?: Record<string, any>;
+  contractSummary?: {
+    sellerName?: string;
+    buyerName?: string;
+    buyerCountry?: string;
+    products?: Array<{ description: string; technicalParams?: string; quantity?: string; unitPrice?: string }>;
+    totalOrderValue?: string;
+    deliveryTerms?: string;
+    poReference?: string;
+    contractDate?: string;
+    governingLaw?: string;
+  };
   docFlow?: Array<{
     stepNumber: number;
     label: string;
@@ -44,7 +59,9 @@ export interface NormalizedReport {
     jurisdictionTags: string[];
   }>;
   citations: string[];
-  rawData?: any;
+  chunksUsed?: any[];
+  dualJurisdiction?: boolean;
+  rawData?: any;  
 }
 
 export function normalizeClassificationResult(
@@ -68,6 +85,7 @@ export function normalizeClassificationResult(
     overallRisk: result.finalDetermination?.riskLevel || 'MEDIUM',
     summary: result.finalDetermination?.summary || 'Product classification analysis completed.',
     jurisdictions,
+    dualJurisdiction: result.finalDetermination?.dualJurisdiction,
     findings: {
       scomet: result.scometFinding,
       ear: result.earFinding,
@@ -79,6 +97,7 @@ export function normalizeClassificationResult(
       result.finalDetermination?.scomet?.citation,
       result.finalDetermination?.ear?.citation
     ].filter(Boolean) as string[],
+    chunksUsed: result.chunksUsed,
     rawData: result
   };
 }
@@ -111,13 +130,25 @@ export function normalizeICPResult(
     riskScore: Math.round(result.overallScore),
     summary: `ICP Gap Analysis completed. Overall compliance score is ${Math.round(result.overallScore)}%.`,
     jurisdictions,
+    dualJurisdiction: jurisdictions.includes('SCOMET_INDIA') && jurisdictions.includes('EAR_US'),
     findings: {
       scomet: `SCOMET Compliance Score: ${Math.round(result.scometScore)}%`,
-      ear: `EAR Compliance Score: ${Math.round(result.earScore)}%`
+      ear: `EAR Compliance Score: ${Math.round(result.earScore)}%`,
+      crossJurisdiction: jurisdictions.includes('SCOMET_INDIA') && jurisdictions.includes('EAR_US')
+        ? 'Internal Compliance Program assessed against both SCOMET and EAR requirements.'
+        : undefined
     },
     gapList,
     docFlow: result.docFlow,
+    extractedSpecs: {
+      productName: companyName,
+      keySpecifications: `ICP Assessment — Overall Score: ${Math.round(result.overallScore)}% | Present: ${result.gapAnalysis.filter(g => g.status === 'Present').length} | Partial: ${result.gapAnalysis.filter(g => g.status === 'Partial').length} | Missing: ${result.gapAnalysis.filter(g => g.status === 'Missing').length}`,
+      destination: 'Export destinations per ICP scope',
+      endUse: 'Internal Compliance Program Gap Assessment',
+      componentOrigin: result.gapAnalysis.length > 0 ? 'Existing ICP document reviewed' : 'New ICP assessment'
+    },
     citations: result.gapAnalysis.map(g => g.citation).filter(c => c && c !== 'N/A'),
+    chunksUsed: result.chunksUsed,
     rawData: result
   };
 }
@@ -126,12 +157,25 @@ export function normalizeContractResult(
   result: ContractResult,
   contractName: string
 ): NormalizedReport {
-  const jurisdictions = Array.from(new Set(result.clauseAudit.map(c => c.jurisdiction)));
+  const safeResult = {
+    ...result,
+    clauseAudit: result?.clauseAudit ?? [],
+    summary: result?.summary ?? 'No summary available.',
+    riskScore: result?.riskScore ?? 0,
+    overallRisk: (result?.overallRisk ?? 'LOW') as 'LOW' | 'MEDIUM' | 'HIGH',
+    chunksUsed: result?.chunksUsed ?? [],
+    confidenceScore: result?.confidenceScore ?? 75,
+    confidenceNote: result?.confidenceNote ?? 'Moderate — confidence not explicitly assessed',
+  };
 
-  const gapList = result.clauseAudit.map(clause => ({
+  const jurisdictions: string[] = Array.from(new Set(safeResult.clauseAudit.map(c => c.jurisdiction as string)));
+
+  const gapList = safeResult.clauseAudit.map(clause => ({
     item: clause.category,
     status: clause.status,
-    priority: clause.riskLevel === 'HIGH' ? 'P1' : clause.riskLevel === 'MEDIUM' ? 'P2' : 'P3',
+    priority:
+      clause.riskLevel === 'HIGH' ? 'P1' :
+      clause.riskLevel === 'MEDIUM' ? 'P2' : 'P3',
     jurisdiction: clause.jurisdiction,
     description: clause.riskReason,
     citation: clause.citation
@@ -144,11 +188,18 @@ export function normalizeContractResult(
     riskScore: result.riskScore,
     summary: result.summary,
     jurisdictions,
+    jurisdictionDisplay: jurisdictions.join(', '),
+    clausesAssessed: result.clauseAudit.length,
+    confidenceScore: result.confidenceScore,
+    confidenceNote: result.confidenceNote,
+    dualJurisdiction: jurisdictions.includes('SCOMET_INDIA') && jurisdictions.includes('EAR_US'),
     findings: {
       crossJurisdiction: 'Contract clauses assessed against selected jurisdictions.'
     },
+    contractSummary: result.contractSummary,
     gapList,
     citations: result.clauseAudit.map(c => c.citation).filter(c => c && c !== 'N/A'),
+    chunksUsed: result.chunksUsed,
     rawData: result
   };
 }

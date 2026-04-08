@@ -20,7 +20,7 @@ export const CredentialsModal: React.FC<Props> = ({ onComplete }) => {
   return (
     <div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6">
-        <h2 className="text-2xl font-semibold text-slate-900 mb-2">Welcome to SemiShield</h2>
+        <h2 className="text-2xl font-semibold text-slate-900 mb-2">Welcome to Silex</h2>
         <p className="text-slate-600 mb-6">Enter your credentials to start. These are stored securely in your browser session only.</p>
         
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -52,7 +52,7 @@ export const CredentialsModal: React.FC<Props> = ({ onComplete }) => {
             type="submit"
             className="w-full bg-indigo-600 text-white font-medium py-2 px-4 rounded-lg hover:bg-indigo-700 transition-colors mt-6 min-h-[44px]"
           >
-            Start SemiShield &rarr;
+            Start Silex &rarr;
           </button>
         </form>
       </div>

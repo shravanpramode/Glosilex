@@ -7,6 +7,7 @@ interface Props {
 export const JurisdictionBadge: React.FC<Props> = ({ jurisdiction }) => {
   const isScomet = jurisdiction.includes('SCOMET');
   const isEar = jurisdiction.includes('EAR');
+  const isEu = jurisdiction.includes('EU');
 
   if (isScomet) {
     return (
@@ -20,6 +21,14 @@ export const JurisdictionBadge: React.FC<Props> = ({ jurisdiction }) => {
     return (
       <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800 border border-indigo-200">
         🇺🇸 EAR
+      </span>
+    );
+  }
+
+  if (isEu) {
+    return (
+      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 border border-blue-200">
+        🇪🇺 EU
       </span>
     );
   }

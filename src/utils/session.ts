@@ -37,6 +37,7 @@ export const clearCredentials = () => {
 };
 
 export async function saveSession(
+  userId: string,
   module: string,
   question: string,
   answer: string,
@@ -47,6 +48,7 @@ export async function saveSession(
 ) {
   const supabase = getSupabase();
   const { data, error } = await supabase.from('compliance_sessions').insert({
+    user_id: userId,
     module,
     question,
     answer,
@@ -64,6 +66,7 @@ export async function saveSession(
 }
 
 export async function saveReport(
+  userId: string,
   sessionId: string,
   module: string,
   reportJson: any
@@ -72,6 +75,7 @@ export async function saveReport(
   const shareToken = crypto.randomUUID();
   
   const { error } = await supabase.from('compliance_reports').insert({
+    user_id: userId,
     session_id: sessionId,
     module,
     report_json: reportJson,

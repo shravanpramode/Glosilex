@@ -36,7 +36,27 @@ if (!SUPABASE_URL || !SUPABASE_KEY || !GEMINI_API_KEY) {
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
+function cleanText(text) {
+  let cleaned = text;
+  
+  // 1. Remove all page break markers matching the pattern: "----------------Page (X) Break----------------"
+  cleaned = cleaned.replace(/-+Page \(\d+\) Break-+/gi, '');
+  
+  // 2. Remove sequences of 3 or more consecutive dashes: ---
+  cleaned = cleaned.replace(/-{3,}/g, '');
+  
+  // 3. Remove repeated underscores of 5 or more: _____
+  cleaned = cleaned.replace(/_{5,}/g, '');
+  
+  // 4. Normalize multiple blank lines to single blank lines
+  cleaned = cleaned.replace(/\n[ \t]*\n([ \t]*\n)+/g, '\n\n');
+  
+  // 5. Trim leading/trailing whitespace
+  return cleaned.trim();
+}
+
 function chunkText(text, jurisdiction) {
+  text = cleanText(text);
   // Normalize whitespace
   text = text.replace(/\s+/g, ' ');
 
