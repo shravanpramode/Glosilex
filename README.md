@@ -1,6 +1,6 @@
 # Glosilex — AI-Powered Semiconductor Trade Compliance Copilot
 
-![Glosilex Banner](glosilex-banner.jpg)
+![Glosilex Banner](glosilex-banner.png)
 
 > **AI copilot for India SCOMET and US EAR/BIS export control compliance — built for semiconductor companies, defence exporters, and trade compliance professionals.**
 
