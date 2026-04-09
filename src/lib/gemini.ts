@@ -7,6 +7,7 @@ import { GLOBAL_SYSTEM_PROMPT, QA_PROMPT } from './prompts';
 
 // ── Change this one constant to switch models across the entire app ────────────
 const GEMINI_MODEL = 'gemini-2.5-flash';
+//const GEMINI_MODEL = 'gemini-3.1-flash-lite-preview';
 // ─────────────────────────────────────────────────────────────────────────────
 
 // ── Retry helper ──────────────────────────────────────────────────────────────

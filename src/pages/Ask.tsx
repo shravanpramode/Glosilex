@@ -10,6 +10,7 @@ import {
   Search, Scale, FileWarning, RefreshCw, Users, BookMarked
 } from 'lucide-react';
 import { detectJurisdiction, retrieveChunks } from '../services/retrieval';
+import { generateHypotheticalDoc } from '../lib/hyde';
 import { saveSession } from '../utils/session';
 import { getSupabase } from '../services/supabase';
 import { parseCitations } from '../utils/citations';
@@ -272,7 +273,10 @@ export const Ask: React.FC = () => {
         setCurrentStep(1);
         const enrichedQuery = buildAskQuery(userQuery);
         const fullQuery = enrichedQuery + (uploadedFileText ? `\n\nDocument Context: ${uploadedFileText.substring(0, 2000)}` : '');
-        finalChunks = await retrieveChunks(fullQuery, targetJurisdictions, 12);
+        const hydeDoc = await generateHypotheticalDoc(
+          `Export control regulatory answer for: ${enrichedQuery}`
+        );
+        finalChunks = await retrieveChunks(hydeDoc, targetJurisdictions, 12);
         setCurrentStep(2);
         const formattedContext = finalChunks
           .map((c: any) => `[Source: ${c.document_name} | Section: ${c.section} | Clause: ${c.clause_id}]\n${c.content}`)
