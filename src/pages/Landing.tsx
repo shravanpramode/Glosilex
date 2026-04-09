@@ -336,7 +336,7 @@ export const Landing: React.FC = () => {
             {/* The attached banner image as the wordmark — left aligned, ~55% width */}
             <div className="mb-6">
               <img
-                src="/glosilex-banner.png"
+                src="https://kflsdxdhupcfetdenxjb.supabase.co/storage/v1/object/public/assets/glosilex-banner.png"
                 alt="GLOSILEX — Semiconductor Export-Compliance Platform"
                 style={{
                   width: '100%',
@@ -462,7 +462,7 @@ export const Landing: React.FC = () => {
               aria-hidden="true"
             />
             <img
-              src="/globe-semiconductor.jpg"
+              src="https://kflsdxdhupcfetdenxjb.supabase.co/storage/v1/object/public/assets/globe-semiconductor.jpg"
               alt="Global semiconductor trade network"
               style={{
                 width: '100%',

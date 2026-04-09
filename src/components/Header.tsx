@@ -25,7 +25,7 @@ const USE_IMAGE_LOGO = true;
 // folder and use '/glosilex-TopLeft-Logo.jpg', OR import it at the top of
 // this file as: import logoImg from '../assets/glosilex-TopLeft-Logo.jpg';
 // and set LOGO_IMAGE_PATH = logoImg;
-const LOGO_IMAGE_PATH = '/glosilex-TopLeft-Logo.png';
+const LOGO_IMAGE_PATH = 'https://kflsdxdhupcfetdenxjb.supabase.co/storage/v1/object/public/assets/glosilex-TopLeft-Logo.png';
 
 // ─── FUTURE / FALLBACK: SVG icon mark ────────────────────────────────────────
 // This SVG is used by BrandWordmark (text mode). It is NOT rendered when
