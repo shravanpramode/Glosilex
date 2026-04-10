@@ -4,6 +4,8 @@ import { embedText } from '../services/embeddings';
 import { CLASSIFICATION_CHAIN, GLOBAL_SYSTEM_PROMPT } from './prompts';
 import { generateHypotheticalDoc } from './hyde';
 
+const pause = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
 export interface ClassificationResult {
   id?: string;
   extractedSpecs: any;
@@ -140,7 +142,7 @@ function deriveRiskLevel(
   return 'LOW';
 }
 
-
+// Inter-Step Delay of 1.5s (await pause(1500);) between every steps 4 → 5 ARE back-to-back gemini calls - To avoid Rapid sequential Gemini calls on an overloaded API stack up and trigger 503 errors
 export async function runClassificationChain(
   productInput: string,
   uploadedDocText?: string,
@@ -235,6 +237,7 @@ export async function runClassificationChain(
   }
 
   // ── Step 4: Cross-jurisdiction analysis ─────────────────────────────────
+  await pause(1500);
   onProgress?.('Running cross-jurisdiction analysis...');
   let crossJurisdictionNote = 'N/A';
 
@@ -246,6 +249,7 @@ export async function runClassificationChain(
   }
 
   // ── Step 5: Final determination + action plan ────────────────────────────
+  await pause(1500);
   onProgress?.('Generating final determination...');
   const step5System = `${GLOBAL_SYSTEM_PROMPT}\n\n${CLASSIFICATION_CHAIN.step5_finalDetermination
     .replace('{{analysis}}', `SCOMET: ${scometFinding}\n\nEAR: ${earFinding}\n\nCROSS JURISDICTION: ${crossJurisdictionNote}`)}`;

@@ -4,6 +4,8 @@ import { embedText } from '../services/embeddings';
 import { CONTRACT_CHAIN, GLOBAL_SYSTEM_PROMPT } from './prompts';
 import { generateHypotheticalDoc } from './hyde';
 
+const pause = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
 export interface ClauseAudit {
   category: string;
   status: 'ADEQUATE' | 'WEAK' | 'MISSING';
@@ -39,6 +41,7 @@ export interface ContractResult {
   };
 }
 
+// Inter-Step Delay of 1.5s (await pause(1500);) between every steps 3 → 4 → 5 ARE back-to-back gemini calls - To avoid Rapid sequential Gemini calls on an overloaded API stack up and trigger 503 errors
 export async function runContractChain(
   contractText: string,
   contractName: string,
@@ -163,6 +166,7 @@ export async function runContractChain(
   );
 
   // Step 4: List gaps
+  await pause(1500);
   onProgress?.('Identifying gaps and risks...');
   const step4System = `${GLOBAL_SYSTEM_PROMPT}\n\n${CONTRACT_CHAIN.step4_listGaps.replace('{{assessment}}', JSON.stringify(adequacyAssessment))}`;
   const step4Response = await callGemini(step4System, 'List WEAK and MISSING clauses', '', { temperature: 0.0, responseMimeType: 'application/json', onRetry });
@@ -206,6 +210,7 @@ export async function runContractChain(
 
   // Step 5: Generate clause language (only needed when there are gaps)
     if (gapList.length > 0) {
+      await pause(1500);
       onProgress?.('Generating compliant clause language...');
       const step5System = `${GLOBAL_SYSTEM_PROMPT}\n\n${CONTRACT_CHAIN.step5_generateLanguage
         .replace('{{gaps}}', JSON.stringify(gapList))

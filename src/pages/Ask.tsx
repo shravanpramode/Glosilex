@@ -154,6 +154,7 @@ export const Ask: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [loadingSteps, setLoadingSteps] = useState<string[]>([]);
   const [currentStep, setCurrentStep] = useState(0);
+  const [retryStatus, setRetryStatus] = useState<string | null>(null);
   const [selectedJurisdictions, setSelectedJurisdictions] = useState<string[]>(['SCOMET_INDIA', 'EAR_US']);
   const [uploadedFileText, setUploadedFileText] = useState<string | null>(null);
   const [uploadedFileName, setUploadedFileName] = useState<string | null>(null);
@@ -268,7 +269,12 @@ export const Ask: React.FC = () => {
         let systemPrompt = `${GLOBAL_SYSTEM_PROMPT}\n\n${QA_PROMPT}`;
         if (uploadedFileText) systemPrompt += `\n\nUPLOADED DOCUMENT:\n${uploadedFileText}`;
         if (hiddenContext) systemPrompt += `\n\nPREVIOUS ANALYSIS CONTEXT (HIDDEN FROM USER):\n${hiddenContext}`;
-        finalAnswer = await callGemini(systemPrompt, `Previous Topic: ${lastTopic}\nFollow-up Question: ${userQuery}`, formattedContext);
+        finalAnswer = await callGemini(systemPrompt, `Previous Topic: ${lastTopic}\nFollow-up Question: ${userQuery}`, formattedContext, {
+          onRetry: (attempt, delayMs, reason) => {
+            setRetryStatus(`Gemini ${reason === '429 rate-limit' ? 'rate limited' : 'overloaded'} — retrying in ${Math.round(delayMs / 1000)}s (attempt ${attempt}/6)`);
+            setTimeout(() => setRetryStatus(null), delayMs + 200);
+          }
+        });
       } else {
         setCurrentStep(1);
         const enrichedQuery = buildAskQuery(userQuery);
@@ -284,10 +290,16 @@ export const Ask: React.FC = () => {
         let systemPrompt = `${GLOBAL_SYSTEM_PROMPT}\n\n${QA_PROMPT}`;
         if (uploadedFileText) systemPrompt += `\n\nUPLOADED DOCUMENT:\n${uploadedFileText}`;
         if (hiddenContext) systemPrompt += `\n\nPREVIOUS ANALYSIS CONTEXT (HIDDEN FROM USER):\n${hiddenContext}`;
-        finalAnswer = await callGemini(systemPrompt, userQuery, formattedContext);
+        finalAnswer = await callGemini(systemPrompt, userQuery, formattedContext, {
+          onRetry: (attempt, delayMs, reason) => {
+            setRetryStatus(`Gemini ${reason === '429 rate-limit' ? 'rate limited' : 'overloaded'} — retrying in ${Math.round(delayMs / 1000)}s (attempt ${attempt}/6)`);
+            setTimeout(() => setRetryStatus(null), delayMs + 200);
+          }
+        });
         setCurrentStep(3);
       }
 
+      setRetryStatus(null);
       const riskMatch = finalAnswer.match(/(🔴 HIGH RISK|🟠 MEDIUM RISK|🟢 LOW RISK)/);
       const confMatch = finalAnswer.match(/Confidence:\s*(\d+%?\s*—\s*(HIGH|MEDIUM|LOW))/i);
       const dualFlag =
@@ -340,9 +352,20 @@ export const Ask: React.FC = () => {
       } catch (err) { console.error('Failed to save session:', err); }
     } catch (error: any) {
       console.error('Q&A Error:', error);
+      const errMsg = String(error?.message || JSON.stringify(error) || '');
+      let friendlyMsg: string;
+      if (errMsg.includes('503') || errMsg.includes('UNAVAILABLE')) {
+        friendlyMsg = '⚠️ Gemini is temporarily overloaded (Google-side issue — not your connection). Please wait 2–3 minutes and try your question again.';
+      } else if (errMsg.includes('429') || errMsg.includes('RESOURCE_EXHAUSTED')) {
+        friendlyMsg = '⚠️ Gemini API rate limit reached. Please wait 1–2 minutes before asking again.';
+      } else if (errMsg.includes('empty response')) {
+        friendlyMsg = '⚠️ Gemini returned an empty response. This occasionally happens on complex queries — please try again.';
+      } else {
+        friendlyMsg = `Failed to generate a response. Please check your connection and try again.`;
+      }
       setMessages(prev => [...prev, {
         role: 'assistant',
-        content: `Error: ${error.message || 'Failed to generate response. Please check your API keys or try again.'}`,
+        content: friendlyMsg,
       }]);
     } finally {
       setIsLoading(false);
@@ -757,16 +780,20 @@ export const Ask: React.FC = () => {
           <div
             className="px-4 py-1.5 flex items-center gap-3 border-b shrink-0"
             style={{
-              background: 'rgba(79,152,163,0.07)',
-              borderColor: 'rgba(79,152,163,0.18)',
+              background: retryStatus ? 'rgba(245,158,11,0.07)' : 'rgba(79,152,163,0.07)',
+              borderColor: retryStatus ? 'rgba(245,158,11,0.22)' : 'rgba(79,152,163,0.18)',
+              transition: 'background 0.3s, border-color 0.3s',
             }}
           >
             <span
               className="w-3 h-3 rounded-full animate-spin border-2 flex-shrink-0"
-              style={{ borderColor: 'var(--color-glosilex-teal-dim)', borderTopColor: 'transparent' }}
+              style={{
+                borderColor: retryStatus ? '#B7791F' : 'var(--color-glosilex-teal-dim)',
+                borderTopColor: 'transparent',
+              }}
             />
-            <span className="text-xs font-medium" style={{ color: 'var(--color-glosilex-teal-dim)' }}>
-              {loadingSteps[currentStep]}…
+            <span className="text-xs font-medium" style={{ color: retryStatus ? '#B7791F' : 'var(--color-glosilex-teal-dim)' }}>
+              {retryStatus ? `⚠️ ${retryStatus}` : `${loadingSteps[currentStep]}…`}
             </span>
           </div>
         )}

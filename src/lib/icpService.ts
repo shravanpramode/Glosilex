@@ -160,7 +160,10 @@ function buildGapListFromMappings(
   });
 }
 
-// Inter-Step Delay of 1.5s (await pause(1500);) between every step - To avoid Rapid sequential Gemini calls on an overloaded API stack up and trigger 503 errors
+/* Inter-Step Delay of 1.5s (await pause(1500);) between every step - To avoid Rapid sequential Gemini calls on an overloaded API stack up and trigger 503 errors
+ICP needed this most urgently because steps 4 → 5 → 6 are pure back-to-back Gemini calls with literally nothing in between — just JSON parsing which takes microseconds:
+ICP Step 4 (callGemini) → [0ms gap — JSON parse only] → Step 5 (callGemini) → [0ms] → Step 6 (callGemini)
+Three Gemini calls fired in rapid succession with zero breathing room. That's the stacking.*/
 export async function runICPChain(
   icpText: string,
   companyName: string,
