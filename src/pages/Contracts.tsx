@@ -9,7 +9,7 @@ import {
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { extractTextFromFile, getFileTypeLabel } from '../utils/fileParser';
-import { runContractChain, ContractResult, ClauseAudit } from '../lib/contractService';
+import { runContractChain, ContractResult, ClauseAudit, PartialContractData } from '../lib/contractService';
 import { normalizeContractResult } from '../lib/reportService';
 import { LoadingSteps } from '../components/LoadingSteps';
 import { RiskBadge } from '../components/RiskBadge';
@@ -152,6 +152,7 @@ export const Contracts: React.FC = () => {
   const [loadingSteps, setLoadingSteps]           = useState<string[]>([]);
   const [currentStep, setCurrentStep]             = useState(0);
   const [retryStatus, setRetryStatus] = useState<string | null>(null);
+  const [partialContractData, setPartialContractData] = useState<PartialContractData | null>(null);
   const [result, setResult]                       = useState<ContractResult | null>(null);
   const [userId, setUserId]                       = useState<string | null>(null);
   const [selectedClause, setSelectedClause]       = useState<ClauseAudit | null>(null);
@@ -216,7 +217,8 @@ export const Contracts: React.FC = () => {
   const handleJurisdictionToggle = (j: string) =>
     setJurisdictions(prev => prev.includes(j) ? prev.filter(x => x !== j) : [...prev, j]);
 
-  const handleReviewContract = async () => {
+  const handleReviewContract = async (resumeFromPartial = false) => {
+    if (!resumeFromPartial) setPartialContractData(null);
     if (!uploadedFileText) { alert('Please upload a contract document.'); return; }
     if (reviewScope.length === 0) { alert('Please select at least one review scope category.'); return; }
     if (jurisdictions.length === 0) { alert('Please select at least one jurisdiction.'); return; }
@@ -242,9 +244,12 @@ export const Contracts: React.FC = () => {
             `Gemini ${reason === '429 rate-limit' ? 'rate limited' : 'overloaded'} — retrying in ${Math.round(delayMs / 1000)}s (attempt ${attempt}/6)`
           );
           setTimeout(() => setRetryStatus(null), delayMs + 200);
-        }
+        },
+        (partial) => setPartialContractData(partial),
+        resumeFromPartial ? (partialContractData ?? undefined) : undefined
       );
       setResult(assessmentResult);
+      setPartialContractData(null);
       const firstGap = assessmentResult.clauseAudit.find(c => c.status !== 'ADEQUATE');
       if (firstGap) setSelectedClause(firstGap);
     } catch (err: any) {
@@ -460,7 +465,7 @@ export const Contracts: React.FC = () => {
           {/* CTA */}
           <div className="flex-shrink-0 px-3 py-3 border-t" style={{ borderColor: T.border, background: T.surface }}>
             <button
-              onClick={handleReviewContract}
+              onClick={() => handleReviewContract(false)}
               disabled={isLoading || !uploadedFileText || reviewScope.length === 0 || jurisdictions.length === 0}
               className="w-full flex justify-center items-center gap-2 py-3 px-4 rounded-xl text-sm font-bold text-white transition-all duration-200 min-h-[44px] disabled:opacity-40 disabled:cursor-not-allowed"
               style={{ background: T.teal, boxShadow: '0 2px 10px rgba(79,152,163,0.28)' }}
@@ -519,9 +524,22 @@ export const Contracts: React.FC = () => {
                 </div>
                 <h3 className="text-base font-bold mb-2" style={{ color: T.text, fontFamily: 'var(--font-heading)' }}>Assessment Failed</h3>
                 <p className="mb-5 text-sm" style={{ color: T.muted }}>{error}</p>
-                <button onClick={handleReviewContract}
-                  className="font-semibold py-2.5 px-6 rounded-xl text-white text-sm transition-colors min-h-[44px]"
-                  style={{ background: T.teal }}>Retry Analysis</button>
+                <button 
+                  onClick={() => handleReviewContract(!!partialContractData)}
+                    style={{ background: T.teal, color: '#fff', fontWeight: 600, padding: '10px 28px', borderRadius: 10, border: 'none', cursor: 'pointer', fontSize: 13, minHeight: 44 }}
+                  >
+                    {partialContractData
+                      ? `Resume from Step ${partialContractData.lastCompletedStep + 1} of 5`
+                      : 'Retry Analysis'}
+                </button>
+                {partialContractData && (
+                  <button
+                    onClick={() => handleReviewContract(false)}
+                    style={{ marginTop: 8, padding: '8px 18px', borderRadius: 8, border: `1px solid ${T.muted}`, background: 'transparent', color: T.muted, fontSize: 12, cursor: 'pointer', display: 'block', margin: '8px auto 0' }}
+                  >
+                    Start Fresh Instead
+                  </button>
+                )}
               </div>
             )}
 
@@ -565,7 +583,7 @@ export const Contracts: React.FC = () => {
                     style={{ background: 'rgba(245,158,11,0.07)', borderColor: 'rgba(245,158,11,0.3)', color: '#92400e' }}>
                     <AlertTriangle className="w-4 h-4 mt-0.5 flex-shrink-0" style={{ color: '#f59e0b' }} />
                     <span className="flex-1 text-xs">{(result as any).retrievalWarningMessage}</span>
-                    <button onClick={handleReviewContract}
+                    <button onClick={() => handleReviewContract(false)}
                       className="text-xs font-bold underline underline-offset-2 whitespace-nowrap" style={{ color: '#92400e' }}>
                       Re-run
                     </button>

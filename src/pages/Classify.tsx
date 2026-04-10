@@ -16,7 +16,7 @@ import { cleanContent, extractConfidence } from '../utils/contentCleaner';
 import { DualJurisdictionAlert } from '../components/DualJurisdictionAlert';
 import { CitationsAccordion } from '../components/CitationsAccordion';
 import { parseCitations } from '../utils/citations';
-import { runClassificationChain, ClassificationResult } from '../lib/classificationService';
+import { runClassificationChain, ClassificationResult, PartialClassificationData } from '../lib/classificationService';
 import { normalizeClassificationResult } from '../lib/reportService';
 import { useNavigate } from 'react-router-dom';
 import { saveClassifyState, loadClassifyState } from '../utils/sessionPersistence';
@@ -388,6 +388,7 @@ export const Classify: React.FC = () => {
   const [loadingSteps, setLoadingSteps]   = useState<string[]>([]);
   const [currentStep, setCurrentStep]     = useState(0);
   const [retryStatus, setRetryStatus] = useState<string | null>(null);
+  const [partialClassifyData, setPartialClassifyData] = useState<PartialClassificationData | null>(null);
   const [result, setResult]               = useState<ClassificationResult | null>(null);
   const [userId, setUserId]               = useState<string | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(() => {
@@ -474,7 +475,8 @@ export const Classify: React.FC = () => {
     }
   };
 
-  const runClassification = async () => {
+  const runClassification = async (resumeFromPartial = false) => {
+    if (!resumeFromPartial) setPartialClassifyData(null);
     if (!file && !productDesc.trim()) {
       alert('Please provide a product description or upload a datasheet.');
       return;
@@ -514,9 +516,12 @@ export const Classify: React.FC = () => {
             `Gemini ${reason === '429 rate-limit' ? 'rate limited' : 'overloaded'} — retrying in ${Math.round(delayMs / 1000)}s (attempt ${attempt}/6)`
           );
           setTimeout(() => setRetryStatus(null), delayMs + 200);
-        }
+        },
+        (partial) => setPartialClassifyData(partial),
+        resumeFromPartial ? (partialClassifyData ?? undefined) : undefined
       );
       setResult(classificationResult);
+      setPartialClassifyData(null);
     } catch (err: any) {
       console.error('Assessment failed:', err);
       const errMsg = String(err?.message || JSON.stringify(err) || '');
@@ -1074,7 +1079,7 @@ export const Classify: React.FC = () => {
           background: T.surface, flexShrink: 0,
         }}>
           <button
-            onClick={runClassification}
+            onClick={() => runClassification(false)}
             disabled={(!file && !productDesc.trim()) || isLoading}
             style={{
               width: '100%',
@@ -1193,11 +1198,21 @@ export const Classify: React.FC = () => {
               <h3 style={{ fontSize: 17, fontWeight: 700, color: T.dark, marginBottom: 8, fontFamily: T.heading }}>Classification Failed</h3>
               <p style={{ fontSize: 13, color: T.muted, marginBottom: 24, fontFamily: T.font }}>{error}</p>
               <button
-                onClick={runClassification}
+                onClick={() => runClassification(!!partialClassifyData)}
                 style={{ background: 'linear-gradient(135deg, var(--color-glosilex-teal-dim, #00B5A8), #008F85)', color: '#fff', fontWeight: 600, padding: '10px 28px', borderRadius: 10, border: 'none', cursor: 'pointer', fontSize: 13, minHeight: 44, fontFamily: T.font }}
               >
-                Retry Classification
+                {partialClassifyData
+                  ? `Resume from Step ${partialClassifyData.lastCompletedStep + 1} of 5`
+                  : 'Retry Classification'}
               </button>
+              {partialClassifyData && (
+                <button
+                  onClick={() => runClassification(false)}
+                  style={{ marginTop: 8, padding: '8px 18px', borderRadius: 8, border: `1px solid ${T.muted}`, background: 'transparent', color: T.muted, fontSize: 12, cursor: 'pointer', display: 'block', margin: '8px auto 0' }}
+                >
+                  Start Fresh Instead
+                </button>
+              )}
             </div>
           </div>
 

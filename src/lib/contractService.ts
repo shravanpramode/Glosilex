@@ -41,6 +41,20 @@ export interface ContractResult {
   };
 }
 
+export interface PartialContractData {
+  lastCompletedStep: 1 | 2 | 3 | 4;
+  extractedClauses?: any[];
+  productSummary?: any;
+  extractedClausesString?: string;
+  productSummaryString?: string;
+  step2Response?: string;
+  combinedContext?: string;
+  allChunks?: any[];
+  adequacyAssessment?: ClauseAudit[];
+  step3Confidence?: { confidenceScore: number; confidenceNote: string };
+  gapList?: any[];
+}
+
 // Inter-Step Delay of 1.5s (await pause(1500);) between every steps 3 → 4 → 5 ARE back-to-back gemini calls - To avoid Rapid sequential Gemini calls on an overloaded API stack up and trigger 503 errors
 export async function runContractChain(
   contractText: string,
@@ -48,99 +62,126 @@ export async function runContractChain(
   reviewScope: string[],
   jurisdictions: string[],
   onProgress?: (step: string) => void,
-  onRetry?: (attempt: number, delayMs: number, reason: string) => void
+  onRetry?: (attempt: number, delayMs: number, reason: string) => void,
+  onStepComplete?: (partial: PartialContractData) => void,
+  partialData?: PartialContractData
 ): Promise<ContractResult> {
   const supabase = getSupabase();
 
-  // Step 1: Extract clauses
-  onProgress?.('Extracting contract clauses...');
-  const step1System = `${GLOBAL_SYSTEM_PROMPT}\n\n${CONTRACT_CHAIN.step1_extractClauses.replace('{{text}}', '')}`;
-  const step1Response = await callGemini(step1System, contractText, '', { temperature: 0.0, responseMimeType: 'application/json', onRetry });
-  
-  let extractedClauses;
+  // ── Shared variables across all steps (declared once here) ────────────
+  let extractedClauses: any[] = [];
   let productSummary: any = {};
-  try {
-    const step1Parsed = JSON.parse(step1Response);
-    if (Array.isArray(step1Parsed)) {
-      extractedClauses = step1Parsed;
-    } else {
-      extractedClauses = step1Parsed.clauses || [];
-      productSummary = step1Parsed.productSummary || {};
-    }
-  } catch (e) {
-    console.error('Failed to parse Step 1 JSON:', step1Response);
-    extractedClauses = [];
-  }
-  const extractedClausesString = JSON.stringify(extractedClauses);
-  const productSummaryString = JSON.stringify(productSummary);
-
-  // Step 2: Retrieve regulatory requirements - Implemented HyDE (scometContractQuery, earContractQuery)
-  onProgress?.('Retrieving regulatory requirements...');
-  let scometContext = '';
+  let extractedClausesString = '';
+  let productSummaryString = '';
+  let step2Response = '';
+  let combinedContext = '';
   let allChunks: any[] = [];
-  // Build product-aware query using what was extracted in Step 1
-  const productContext = productSummary?.products?.map((p: any) => p.description).join(', ')
-    || productSummary?.productName
-    || contractName;
-
-  if (jurisdictions.includes('SCOMET_INDIA')) {
-    const scometContractQuery = `SCOMET export control contract clauses for: ${productContext}. Required: SCOMET license authorization reference number export compliance end-use certificate end-user statement re-export restriction prohibited diversion force majeure regulatory change DGFT India audit rights suspension termination license denial revocation notification contractual obligation SCOMET List`;
-    const scometContractHyde = await generateHypotheticalDoc(
-      `SCOMET India export control contract clause requirements: ${scometContractQuery}`
-    );
-    const scometContractEmbedding = await embedText(scometContractHyde);
-    const { data: scometChunks } = await supabase.rpc('hybrid_search', {
-      query_embedding: scometContractEmbedding,
-      query_text: scometContractQuery,
-      jurisdiction_filter: ['SCOMET_INDIA'],
-      match_count: 5
-    });
-    if (scometChunks) allChunks = [...allChunks, ...scometChunks];
-    scometContext = (scometChunks || []).map((c: any) => `[Source: ${c.document_name} | Section: ${c.section} | Clause: ${c.clause_id}]\n${c.content}`).join('\n\n');
-  }
-
-  let earContext = '';
-  if (jurisdictions.includes('EAR_US')) {
-    const earContractQuery = `US EAR BIS export control contract clauses for: ${productContext}. Required: export license number ECCN classification re-export restriction prohibited end-use end-user diversion clause license exception conditions deemed export technology transfer deemed re-export FDPR foreign direct product rule audit right regulatory change notification termination right 15 CFR Part 736 Part 744 BIS compliance`;
-    const earContractHyde = await generateHypotheticalDoc(
-      `US EAR BIS export control contract clause requirements: ${earContractQuery}`
-    );
-    const earContractEmbedding = await embedText(earContractHyde);
-    const { data: earChunks } = await supabase.rpc('hybrid_search', {
-      query_embedding: earContractEmbedding,
-      query_text: earContractQuery,
-      jurisdiction_filter: ['EAR_US'],
-      match_count: 5
-    });
-    if (earChunks) allChunks = [...allChunks, ...earChunks];
-    earContext = (earChunks || []).map((c: any) => `[Source: ${c.document_name} | Section: ${c.section} | Clause: ${c.clause_id}]\n${c.content}`).join('\n\n');
-  }
-
-  const combinedContext = `SCOMET CONTEXT:\n${scometContext}\n\nEAR CONTEXT:\n${earContext}`;
-  const step2System = `${GLOBAL_SYSTEM_PROMPT}\n\n${CONTRACT_CHAIN.step2_retrieveRequirements.replace('{{context}}', '')}`;
-  const step2Response = await callGemini(step2System, 'Retrieve required clauses', combinedContext, { temperature: 0.0, responseMimeType: 'application/json', onRetry });
-
-  // Step 3: Assess adequacy
-  onProgress?.('Assessing clause adequacy...');
-  const step3System = `${GLOBAL_SYSTEM_PROMPT}\n\n${CONTRACT_CHAIN.step3_assessAdequacy
-    .replace('{{extracted_clauses}}', extractedClausesString)
-    .replace('{{product_summary}}', productSummaryString)
-    .replace('{{requirements}}', step2Response)}`;
-  const step3Response = await callGemini(step3System, 'Assess adequacy of clauses', combinedContext, { temperature: 0.0, responseMimeType: 'application/json', onRetry });
-  
   let adequacyAssessment: ClauseAudit[] = [];
-    let step3Confidence = {
-      confidenceScore: 75,
-      confidenceNote: 'Moderate — confidence not explicitly assessed'
-    };
+  let step3Confidence = {
+    confidenceScore: 75,
+    confidenceNote: 'Moderate — confidence not explicitly assessed'
+  };
+  let gapList: any[] = [];
+
+  // Step 1: Extract clauses  
+  if (partialData && partialData.lastCompletedStep >= 1 && partialData.extractedClauses) {
+    onProgress?.('Extracting contract clauses...');
+    extractedClauses = partialData.extractedClauses;
+    productSummary = partialData.productSummary ?? {};
+    extractedClausesString = partialData.extractedClausesString!;
+    productSummaryString = partialData.productSummaryString!;
+  } else {
+    onProgress?.('Extracting contract clauses...');
+    const step1System = `${GLOBAL_SYSTEM_PROMPT}\n\n${CONTRACT_CHAIN.step1_extractClauses.replace('{{text}}', '')}`;
+    const step1Response = await callGemini(step1System, contractText, '', { temperature: 0.0, responseMimeType: 'application/json', onRetry });
+    productSummary = {};
+    try {
+      const step1Parsed = JSON.parse(step1Response);
+      if (Array.isArray(step1Parsed)) {
+        extractedClauses = step1Parsed;
+      } else {
+        extractedClauses = step1Parsed.clauses || [];
+        productSummary = step1Parsed.productSummary || {};
+      }
+    } catch (e) {
+      console.error('Failed to parse Step 1 JSON:', step1Response);
+      extractedClauses = [];
+    }
+    extractedClausesString = JSON.stringify(extractedClauses);
+    productSummaryString = JSON.stringify(productSummary);
+    onStepComplete?.({ lastCompletedStep: 1, extractedClauses, productSummary, extractedClausesString, productSummaryString });
+  }
+
+  // Step 2: Retrieve regulatory requirements  
+  if (partialData && partialData.lastCompletedStep >= 2 && partialData.step2Response) {
+    onProgress?.('Retrieving regulatory requirements...');
+    step2Response = partialData.step2Response;
+    combinedContext = partialData.combinedContext!;
+    allChunks = [...(partialData.allChunks ?? [])];
+  } else {
+    onProgress?.('Retrieving regulatory requirements...');
+    let scometContext = '';
+    const productContext = productSummary?.products?.map((p: any) => p.description).join(', ')
+      || productSummary?.productName
+      || contractName;
+
+    if (jurisdictions.includes('SCOMET_INDIA')) {
+      const scometContractQuery = `SCOMET export control contract clauses for: ${productContext}. Required: SCOMET license authorization reference number export compliance end-use certificate end-user statement re-export restriction prohibited diversion force majeure regulatory change DGFT India audit rights suspension termination license denial revocation notification contractual obligation SCOMET List`;
+      const scometContractHyde = await generateHypotheticalDoc(
+        `SCOMET India export control contract clause requirements: ${scometContractQuery}`
+      );
+      const scometContractEmbedding = await embedText(scometContractHyde);
+      const { data: scometChunks } = await supabase.rpc('hybrid_search', {
+        query_embedding: scometContractEmbedding,
+        query_text: scometContractQuery,
+        jurisdiction_filter: ['SCOMET_INDIA'],
+        match_count: 5
+      });
+      if (scometChunks) allChunks = [...allChunks, ...scometChunks];
+      scometContext = (scometChunks || []).map((c: any) => `[Source: ${c.document_name} | Section: ${c.section} | Clause: ${c.clause_id}]\n${c.content}`).join('\n\n');
+    }
+
+    let earContext = '';
+    if (jurisdictions.includes('EAR_US')) {
+      const earContractQuery = `US EAR BIS export control contract clauses for: ${productContext}. Required: export license number ECCN classification re-export restriction prohibited end-use end-user diversion clause license exception conditions deemed export technology transfer deemed re-export FDPR foreign direct product rule audit right regulatory change notification termination right 15 CFR Part 736 Part 744 BIS compliance`;
+      const earContractHyde = await generateHypotheticalDoc(
+        `US EAR BIS export control contract clause requirements: ${earContractQuery}`
+      );
+      const earContractEmbedding = await embedText(earContractHyde);
+      const { data: earChunks } = await supabase.rpc('hybrid_search', {
+        query_embedding: earContractEmbedding,
+        query_text: earContractQuery,
+        jurisdiction_filter: ['EAR_US'],
+        match_count: 5
+      });
+      if (earChunks) allChunks = [...allChunks, ...earChunks];
+      earContext = (earChunks || []).map((c: any) => `[Source: ${c.document_name} | Section: ${c.section} | Clause: ${c.clause_id}]\n${c.content}`).join('\n\n');
+    }
+
+    combinedContext = `SCOMET CONTEXT:\n${scometContext}\n\nEAR CONTEXT:\n${earContext}`;
+    const step2System = `${GLOBAL_SYSTEM_PROMPT}\n\n${CONTRACT_CHAIN.step2_retrieveRequirements.replace('{{context}}', '')}`;
+    step2Response = await callGemini(step2System, 'Retrieve required clauses', combinedContext, { temperature: 0.0, responseMimeType: 'application/json', onRetry });
+    onStepComplete?.({ lastCompletedStep: 2, extractedClauses, productSummary, extractedClausesString, productSummaryString, step2Response, combinedContext, allChunks: [...allChunks] });
+  }
+
+  // Step 3: Assess adequacy  
+  if (partialData && partialData.lastCompletedStep >= 3 && partialData.adequacyAssessment) {
+    onProgress?.('Assessing clause adequacy...');
+    adequacyAssessment = partialData.adequacyAssessment;
+    step3Confidence = partialData.step3Confidence ?? step3Confidence;
+  } else {
+    onProgress?.('Assessing clause adequacy...');
+    const step3System = `${GLOBAL_SYSTEM_PROMPT}\n\n${CONTRACT_CHAIN.step3_assessAdequacy
+      .replace('{{extracted_clauses}}', extractedClausesString)
+      .replace('{{product_summary}}', productSummaryString)
+      .replace('{{requirements}}', step2Response)}`;
+    const step3Response = await callGemini(step3System, 'Assess adequacy of clauses', combinedContext, { temperature: 0.0, responseMimeType: 'application/json', onRetry });
     try {
       const parsedStep3 = JSON.parse(step3Response);
       adequacyAssessment = Array.isArray(parsedStep3)
         ? parsedStep3
         : (parsedStep3.clauses || []);
       if (!Array.isArray(parsedStep3)) {
-        // Override model confidence score with deterministic code-side computation
-        // to prevent run-to-run variation.
         const missingForConf = (Array.isArray(parsedStep3.clauses) ? parsedStep3.clauses : [])
           .filter((c: any) => c.status === 'MISSING').length;
         const weakSingleJurisdiction = (Array.isArray(parsedStep3.clauses) ? parsedStep3.clauses : [])
@@ -156,6 +197,8 @@ export async function runContractChain(
     } catch (e) {
       console.error('Failed to parse Step 3 JSON:', step3Response);
     }
+    onStepComplete?.({ lastCompletedStep: 3, extractedClauses, productSummary, extractedClausesString, productSummaryString, step2Response, combinedContext, allChunks: [...allChunks], adequacyAssessment, step3Confidence });
+  }
 
   // Filter adequacy assessment to only include categories in reviewScope
   adequacyAssessment = adequacyAssessment.filter(item =>
@@ -165,19 +208,21 @@ export async function runContractChain(
     )
   );
 
-  // Step 4: List gaps
-  await pause(1500);
-  onProgress?.('Identifying gaps and risks...');
-  const step4System = `${GLOBAL_SYSTEM_PROMPT}\n\n${CONTRACT_CHAIN.step4_listGaps.replace('{{assessment}}', JSON.stringify(adequacyAssessment))}`;
-  const step4Response = await callGemini(step4System, 'List WEAK and MISSING clauses', '', { temperature: 0.0, responseMimeType: 'application/json', onRetry });
-  
-  let gapList = [];
+  // Step 4: List gaps  
+  if (partialData && partialData.lastCompletedStep >= 4 && partialData.gapList) {
+    onProgress?.('Identifying gaps and risks...');
+    gapList = partialData.gapList;
+  } else {
+    await pause(1500);
+    onProgress?.('Identifying gaps and risks...');
+    const step4System = `${GLOBAL_SYSTEM_PROMPT}\n\n${CONTRACT_CHAIN.step4_listGaps.replace('{{assessment}}', JSON.stringify(adequacyAssessment))}`;
+    const step4Response = await callGemini(step4System, 'List WEAK and MISSING clauses', '', { temperature: 0.0, responseMimeType: 'application/json', onRetry });
+    gapList = [];
     try {
       const parsedStep4 = JSON.parse(step4Response);
       gapList = Array.isArray(parsedStep4) ? parsedStep4 : (parsedStep4.gaps || parsedStep4.clauses || []);
     } catch (e) {
       console.error('Failed to parse Step 4 JSON:', step4Response);
-      // Derive gap list directly from adequacy assessment as fallback
       gapList = adequacyAssessment
         .filter((c: any) => c.status === 'WEAK' || c.status === 'MISSING')
         .map((c: any) => ({
@@ -189,6 +234,8 @@ export async function runContractChain(
           citation: c.citation
         }));
     }
+    onStepComplete?.({ lastCompletedStep: 4, extractedClauses, productSummary, extractedClausesString, productSummaryString, step2Response, combinedContext, allChunks: [...allChunks], adequacyAssessment, step3Confidence, gapList });
+  }
   
   // Declare parsedStep5 here so the try block can assign to it
     let parsedStep5: any = { clauses: [], riskScore: null, riskLevel: null, summary: null };

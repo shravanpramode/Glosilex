@@ -504,7 +504,7 @@ export const Icp: React.FC = () => {
           {/* ── CTA ── */}
           <div className="flex-shrink-0 px-3 py-3 border-t" style={{ borderColor: T.border, background: T.surface }}>
             <button
-              onClick={() => handleRunAssessment(!!partialIcpData)}
+              onClick={() => handleRunAssessment(false)}
               disabled={isLoading || !companyName || (hasExistingIcp && !uploadedFileText) || jurisdictions.length === 0}
               className="w-full flex justify-center items-center gap-2 py-3 px-4 rounded-xl text-sm font-bold text-white transition-all duration-200 min-h-[44px] disabled:opacity-40 disabled:cursor-not-allowed"
               style={{ background: T.teal, boxShadow: '0 2px 10px rgba(79,152,163,0.28)' }}

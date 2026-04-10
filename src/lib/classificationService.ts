@@ -16,6 +16,15 @@ export interface ClassificationResult {
   chunksUsed?: any[];
 }
 
+export interface PartialClassificationData {
+  lastCompletedStep: 1 | 2 | 3 | 4;
+  extractedSpecs?: any;
+  specsString?: string;
+  scometFinding?: string;
+  earFinding?: string;
+  allChunks?: any[];
+  crossJurisdictionNote?: string;
+}
 
 function buildScometQuery(specs: any): string {
   const t = JSON.stringify(specs).toLowerCase();
@@ -148,7 +157,9 @@ export async function runClassificationChain(
   uploadedDocText?: string,
   jurisdictions: string[] = ['SCOMET_INDIA', 'EAR_US'],
   onProgress?: (step: string) => void,
-  onRetry?: (attempt: number, delayMs: number, reason: string) => void
+  onRetry?: (attempt: number, delayMs: number, reason: string) => void,
+  onStepComplete?: (partial: PartialClassificationData) => void,
+  partialData?: PartialClassificationData
 ): Promise<ClassificationResult> {
   // ── Input Validation ───────────────────────────────────────────────────
   if (productInput.length > 8000) {
@@ -164,32 +175,43 @@ export async function runClassificationChain(
     : productInput;
 
   // ── Step 1: Extract specs ────────────────────────────────────────────────
-  onProgress?.('Extracting product specifications...');
-  const step1System = CLASSIFICATION_CHAIN.step1_extractSpecs.replace('{{text}}', '');
-  const step1Response = await callGemini(step1System, fullInput, '', { temperature: 0.0, responseMimeType: 'application/json', onRetry });
-
   let extractedSpecs: any;
-  try {
-    extractedSpecs = JSON.parse(step1Response);
-  } catch (e) {
-    if (!import.meta.env.PROD) {
-      console.error('Failed to parse Step 1 JSON:', step1Response);
+  let specsString: string;
+  if (partialData && partialData.lastCompletedStep >= 1 && partialData.extractedSpecs) {
+    onProgress?.('Extracting product specifications...');
+    extractedSpecs = partialData.extractedSpecs;
+    specsString = partialData.specsString!;
+  } else {
+    onProgress?.('Extracting product specifications...');
+    const step1System = CLASSIFICATION_CHAIN.step1_extractSpecs.replace('{{text}}', '');
+    const step1Response = await callGemini(step1System, fullInput, '', { temperature: 0.0, responseMimeType: 'application/json', onRetry });
+    try {
+      extractedSpecs = JSON.parse(step1Response);
+    } catch (e) {
+      if (!import.meta.env.PROD) {
+        console.error('Failed to parse Step 1 JSON:', step1Response);
+      }
+      extractedSpecs = { raw: step1Response };
     }
-    extractedSpecs = { raw: step1Response };
+    specsString = JSON.stringify(extractedSpecs);
+    onStepComplete?.({ lastCompletedStep: 1, extractedSpecs, specsString });
   }
-  const specsString = JSON.stringify(extractedSpecs);
 
   // ── Step 2: Classify against SCOMET ─────────────────────────────────────
   let scometFinding = 'Not evaluated (SCOMET not selected)';
   let allChunks: any[] = [];
 
-  if (jurisdictions.includes('SCOMET_INDIA')) {
-    onProgress?.('Retrieving SCOMET regulatory context...');    
+  if (partialData && partialData.lastCompletedStep >= 2) {
+    onProgress?.('Retrieving SCOMET regulatory context...');
+    scometFinding = partialData.scometFinding ?? 'Not evaluated (SCOMET not selected)';
+    allChunks = [...(partialData.allChunks ?? [])];
+  } else if (jurisdictions.includes('SCOMET_INDIA')) {
+    onProgress?.('Retrieving SCOMET regulatory context...');
     const scometQuery = buildScometQuery(extractedSpecs);
     const scometHyde = await generateHypotheticalDoc(
       `SCOMET India export control classification for: ${scometQuery}`
     );
-    const scometEmbedding = await embedText(scometHyde); // embed hypothetical doc, not the query
+    const scometEmbedding = await embedText(scometHyde);
     const { data: scometChunks } = await supabase.rpc('hybrid_search', {
       query_embedding: scometEmbedding,
       query_text: scometQuery,
@@ -200,18 +222,22 @@ export async function runClassificationChain(
     const scometContext = (scometChunks || []).map((c: any) =>
       `[Source: ${c.document_name} | Section: ${c.section} | Clause: ${c.clause_id}]\n${c.content}`
     ).join('\n\n');
-
     onProgress?.('Analyzing SCOMET compliance...');
     const step2System = `${GLOBAL_SYSTEM_PROMPT}\n\n${CLASSIFICATION_CHAIN.step2_classifyScomet
       .replace('{{specs}}', specsString)
       .replace('{{scomet_context}}', '')}`;
     scometFinding = await callGemini(step2System, 'Classify against SCOMET', scometContext, { temperature: 0.0, onRetry });
+    onStepComplete?.({ lastCompletedStep: 2, extractedSpecs, specsString, scometFinding, allChunks: [...allChunks] });
   }
 
   // ── Step 3: Classify against EAR ────────────────────────────────────────
   let earFinding = 'Not evaluated (EAR not selected)';
 
-  if (jurisdictions.includes('EAR_US')) {
+  if (partialData && partialData.lastCompletedStep >= 3) {
+    onProgress?.('Retrieving EAR regulatory context...');
+    earFinding = partialData.earFinding ?? 'Not evaluated (EAR not selected)';
+    allChunks = [...(partialData.allChunks ?? allChunks)];
+  } else if (jurisdictions.includes('EAR_US')) {
     onProgress?.('Retrieving EAR regulatory context...');
     const earQuery = buildEarQuery(extractedSpecs);
     const earHyde = await generateHypotheticalDoc(
@@ -228,24 +254,30 @@ export async function runClassificationChain(
     const earContext = (earChunks || []).map((c: any) =>
       `[Source: ${c.document_name} | Section: ${c.section} | Clause: ${c.clause_id}]\n${c.content}`
     ).join('\n\n');
-
     onProgress?.('Analyzing EAR compliance...');
     const step3System = `${GLOBAL_SYSTEM_PROMPT}\n\n${CLASSIFICATION_CHAIN.step3_classifyEar
       .replace('{{specs}}', specsString)
       .replace('{{ear_context}}', '')}`;
     earFinding = await callGemini(step3System, 'Classify against EAR', earContext, { temperature: 0.0, onRetry });
+    onStepComplete?.({ lastCompletedStep: 3, extractedSpecs, specsString, scometFinding, earFinding, allChunks: [...allChunks] });
   }
 
   // ── Step 4: Cross-jurisdiction analysis ─────────────────────────────────
-  await pause(1500);
-  onProgress?.('Running cross-jurisdiction analysis...');
   let crossJurisdictionNote = 'N/A';
 
-  if (jurisdictions.includes('SCOMET_INDIA') && jurisdictions.includes('EAR_US')) {
-    const step4System = `${GLOBAL_SYSTEM_PROMPT}\n\n${CLASSIFICATION_CHAIN.step4_crossJurisdiction
-      .replace('{{scomet_results}}', scometFinding)
-      .replace('{{ear_results}}', earFinding)}`;
-    crossJurisdictionNote = await callGemini(step4System, 'Perform cross-jurisdiction analysis', '', { temperature: 0.0, onRetry });
+  if (partialData && partialData.lastCompletedStep >= 4) {
+    onProgress?.('Running cross-jurisdiction analysis...');
+    crossJurisdictionNote = partialData.crossJurisdictionNote ?? 'N/A';
+  } else {
+    await pause(1500);
+    onProgress?.('Running cross-jurisdiction analysis...');
+    if (jurisdictions.includes('SCOMET_INDIA') && jurisdictions.includes('EAR_US')) {
+      const step4System = `${GLOBAL_SYSTEM_PROMPT}\n\n${CLASSIFICATION_CHAIN.step4_crossJurisdiction
+        .replace('{{scomet_results}}', scometFinding)
+        .replace('{{ear_results}}', earFinding)}`;
+      crossJurisdictionNote = await callGemini(step4System, 'Perform cross-jurisdiction analysis', '', { temperature: 0.0, onRetry });
+    }
+    onStepComplete?.({ lastCompletedStep: 4, extractedSpecs, specsString, scometFinding, earFinding, allChunks: [...allChunks], crossJurisdictionNote });
   }
 
   // ── Step 5: Final determination + action plan ────────────────────────────
