@@ -51,7 +51,7 @@ The application provides four specialized AI compliance workflows — **Classifi
 
 **Supabase Project:** [https://supabase.com/dashboard/project/kflsdxdhupcfetdenxjb](https://supabase.com/dashboard/project/kflsdxdhupcfetdenxjb)
 
-**Live URL:** *(TODO: add production URL after launch)*
+**Live URL:** *(https://glosilex.vercel.app/)*
 
 ---
 
@@ -1150,7 +1150,6 @@ To add new regulatory documents, run `ingest.js` with the appropriate `--jurisdi
 
 ### Confirmed Open Items
 
-- **Live production URL** — not yet added to README / deployment docs
 - **License** — not yet declared in the repository
 - **Auth hardening** — `supabase_security.sql` explicitly notes that policies should be tightened once login/auth is added
 - **Phase 2 ICP features** — UI already references Phase 2 / SOP-document enhancements, indicating deeper document-generation workflows are intended
