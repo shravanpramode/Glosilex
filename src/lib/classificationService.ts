@@ -145,7 +145,8 @@ export async function runClassificationChain(
   productInput: string,
   uploadedDocText?: string,
   jurisdictions: string[] = ['SCOMET_INDIA', 'EAR_US'],
-  onProgress?: (step: string) => void
+  onProgress?: (step: string) => void,
+  onRetry?: (attempt: number, delayMs: number, reason: string) => void
 ): Promise<ClassificationResult> {
   // ── Input Validation ───────────────────────────────────────────────────
   if (productInput.length > 8000) {
@@ -163,7 +164,7 @@ export async function runClassificationChain(
   // ── Step 1: Extract specs ────────────────────────────────────────────────
   onProgress?.('Extracting product specifications...');
   const step1System = CLASSIFICATION_CHAIN.step1_extractSpecs.replace('{{text}}', '');
-  const step1Response = await callGemini(step1System, fullInput, '', { temperature: 0.0, responseMimeType: 'application/json' });
+  const step1Response = await callGemini(step1System, fullInput, '', { temperature: 0.0, responseMimeType: 'application/json', onRetry });
 
   let extractedSpecs: any;
   try {
@@ -202,7 +203,7 @@ export async function runClassificationChain(
     const step2System = `${GLOBAL_SYSTEM_PROMPT}\n\n${CLASSIFICATION_CHAIN.step2_classifyScomet
       .replace('{{specs}}', specsString)
       .replace('{{scomet_context}}', '')}`;
-    scometFinding = await callGemini(step2System, 'Classify against SCOMET', scometContext, { temperature: 0.0 });
+    scometFinding = await callGemini(step2System, 'Classify against SCOMET', scometContext, { temperature: 0.0, onRetry });
   }
 
   // ── Step 3: Classify against EAR ────────────────────────────────────────
@@ -230,7 +231,7 @@ export async function runClassificationChain(
     const step3System = `${GLOBAL_SYSTEM_PROMPT}\n\n${CLASSIFICATION_CHAIN.step3_classifyEar
       .replace('{{specs}}', specsString)
       .replace('{{ear_context}}', '')}`;
-    earFinding = await callGemini(step3System, 'Classify against EAR', earContext, { temperature: 0.0 });
+    earFinding = await callGemini(step3System, 'Classify against EAR', earContext, { temperature: 0.0, onRetry });
   }
 
   // ── Step 4: Cross-jurisdiction analysis ─────────────────────────────────
@@ -241,7 +242,7 @@ export async function runClassificationChain(
     const step4System = `${GLOBAL_SYSTEM_PROMPT}\n\n${CLASSIFICATION_CHAIN.step4_crossJurisdiction
       .replace('{{scomet_results}}', scometFinding)
       .replace('{{ear_results}}', earFinding)}`;
-    crossJurisdictionNote = await callGemini(step4System, 'Perform cross-jurisdiction analysis', '', { temperature: 0.0 });
+    crossJurisdictionNote = await callGemini(step4System, 'Perform cross-jurisdiction analysis', '', { temperature: 0.0, onRetry });
   }
 
   // ── Step 5: Final determination + action plan ────────────────────────────
@@ -252,7 +253,7 @@ export async function runClassificationChain(
     step5System,
     'Generate final determination and action plan',
     '',
-    { temperature: 0.0, responseMimeType: 'application/json' }
+    { temperature: 0.0, responseMimeType: 'application/json', onRetry }
   );
 
   let finalDetermination: any;

@@ -4,6 +4,8 @@ import { embedText } from '../services/embeddings';
 import { ICP_CHAIN, GLOBAL_SYSTEM_PROMPT } from './prompts';
 import { generateHypotheticalDoc } from './hyde';
 
+const pause = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
 export interface ICPGap {
   component: string;
   status: 'Present' | 'Partial' | 'Missing';
@@ -158,11 +160,13 @@ function buildGapListFromMappings(
   });
 }
 
+// Inter-Step Delay of 1.5s (await pause(1500);) between every step - To avoid Rapid sequential Gemini calls on an overloaded API stack up and trigger 503 errors
 export async function runICPChain(
   icpText: string,
   companyName: string,
   jurisdictions: string[],
-  onProgress?: (step: string) => void
+  onProgress?: (step: string) => void,
+  onRetry?: (attempt: number, delayMs: number, reason: string) => void
 ): Promise<ICPResult> {
   const supabase = getSupabase();
   const input = icpText.trim() ? icpText : "No ICP provided";
@@ -170,7 +174,7 @@ export async function runICPChain(
   // Step 1: Extract ICP structure
   onProgress?.('Extracting ICP structure...');
   const step1System = `${GLOBAL_SYSTEM_PROMPT}\n\n${ICP_CHAIN.step1_extractStructure.replace('{{text}}', '')}`;
-  const step1Response = await callGemini(step1System, input, '', { temperature: 0.0, responseMimeType: 'application/json' });
+  const step1Response = await callGemini(step1System, input, '', { temperature: 0.0, responseMimeType: 'application/json', onRetry });
   
   let extractedStructure;
   try {
@@ -185,6 +189,7 @@ export async function runICPChain(
   let scometMapping = 'Not evaluated (SCOMET not selected)';
   let allChunks: any[] = [];
   if (jurisdictions.includes('SCOMET_INDIA')) {
+    await pause(1500);
     onProgress?.('Mapping against SCOMET requirements...');
     const scometIcpQuery = `SCOMET India DGFT export control program ICP requirements: management commitment policy statement export control officer appointment SCOMET list Category 8A 6A 3A product classification procedures customer end-user screening transaction red flag review license determination recordkeeping 5 years employee training audit monitoring violation reporting escalation third-party intermediary controls technology transfer deemed export sanctions entity list screening DGFT Foreign Trade Policy`;
     const scometIcpHyde = await generateHypotheticalDoc(
@@ -201,12 +206,13 @@ export async function runICPChain(
     const scometContext = (scometChunks || []).map((c: any) => `[Source: ${c.document_name} | Section: ${c.section} | Clause: ${c.clause_id}]\n${c.content}`).join('\n\n');
     
     const step2System = `${GLOBAL_SYSTEM_PROMPT}\n\n${ICP_CHAIN.step2_mapScomet.replace('{{icp_structure}}', structureString).replace('{{scomet_context}}', '')}`;
-    scometMapping = await callGemini(step2System, 'Map against SCOMET', scometContext, { temperature: 0.0, responseMimeType: 'application/json' });
+    scometMapping = await callGemini(step2System, 'Map against SCOMET', scometContext, { temperature: 0.0, responseMimeType: 'application/json', onRetry });
   }
 
   // Step 3: Map against EAR requirements - Implemented HyDE (earIcpQuery)
   let earMapping = 'Not evaluated (EAR not selected)';
   if (jurisdictions.includes('EAR_US')) {
+    await pause(1500);
     onProgress?.('Mapping against EAR requirements...');
     const earIcpQuery = `US EAR BIS export compliance program ICP requirements: management commitment export control officer ECCN classification denied party screening license determination EAR99 recordkeeping 5 years training audit monitoring violation reporting deemed export technology transfer OFAC sanctions Consolidated Screening List Part 744 Part 764 15 CFR Bureau of Industry Security`;
     const earIcpHyde = await generateHypotheticalDoc(
@@ -223,10 +229,11 @@ export async function runICPChain(
     const earContext = (earChunks || []).map((c: any) => `[Source: ${c.document_name} | Section: ${c.section} | Clause: ${c.clause_id}]\n${c.content}`).join('\n\n');
     
     const step3System = `${GLOBAL_SYSTEM_PROMPT}\n\n${ICP_CHAIN.step3_mapEar.replace('{{icp_structure}}', structureString).replace('{{ear_context}}', '')}`;
-    earMapping = await callGemini(step3System, 'Map against EAR', earContext, { temperature: 0.0, responseMimeType: 'application/json' });
+    earMapping = await callGemini(step3System, 'Map against EAR', earContext, { temperature: 0.0, responseMimeType: 'application/json', onRetry });
   }
 
   // Step 4: Identify gaps — pass mappings as context, NOT embedded in system prompt
+  await pause(1500);
   onProgress?.('Identifying compliance gaps...');
   const step4PromptBase = ICP_CHAIN.step4_identifyGaps
     .replace('{{scomet_mapping}}', '')
@@ -237,7 +244,7 @@ export async function runICPChain(
     step4System,
     'Evaluate ALL 14 standard ICP components and return all of them in the output, including Present components.',
     step4Context,
-    { temperature: 0.0, responseMimeType: 'application/json' }
+    { temperature: 0.0, responseMimeType: 'application/json', onRetry }
   );
 
   let gapList: ICPGap[] = parseArrayResponse(step4Response);
@@ -264,6 +271,7 @@ export async function runICPChain(
   }
 
   // Step 5: Generate SOP text — pass gapList as context
+  await pause(1500);
   onProgress?.('Generating SOP language...');
   const step5PromptBase = ICP_CHAIN.step5_generateSop.replace('{{gaps}}', '');
   const step5System = `${GLOBAL_SYSTEM_PROMPT}\n\n${step5PromptBase}`;
@@ -271,7 +279,7 @@ export async function runICPChain(
     step5System,
     'Add sopText to every item in the gap list. Return the complete array with all 14 items.',
     JSON.stringify(gapList),
-    { temperature: 0.0, responseMimeType: 'application/json' }
+    { temperature: 0.0, responseMimeType: 'application/json', onRetry }
   );
 
   let gapListWithSop: ICPGap[] = gapList; // default: keep existing if step 5 fails
@@ -283,6 +291,7 @@ export async function runICPChain(
   }
 
   // Step 6: Build documentation flow — pass analysis data as context
+  await pause(1500);
   onProgress?.('Building documentation flow...');
   const step6PromptBase = ICP_CHAIN.step6_buildFlow.replace('{{analysis_data}}', '');
   const step6System = `${GLOBAL_SYSTEM_PROMPT}\n\n${step6PromptBase}`;
@@ -290,7 +299,7 @@ export async function runICPChain(
     step6System,
     'Build the recommended documentation flow based on the gap analysis.',
     JSON.stringify(gapListWithSop),
-    { temperature: 0.1, responseMimeType: 'application/json' }
+    { temperature: 0.1, responseMimeType: 'application/json', onRetry }
   );
 
   let docFlow: DocFlowStep[] = parseArrayResponse(step6Response);

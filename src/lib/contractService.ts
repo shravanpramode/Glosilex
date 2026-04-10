@@ -44,14 +44,15 @@ export async function runContractChain(
   contractName: string,
   reviewScope: string[],
   jurisdictions: string[],
-  onProgress?: (step: string) => void
+  onProgress?: (step: string) => void,
+  onRetry?: (attempt: number, delayMs: number, reason: string) => void
 ): Promise<ContractResult> {
   const supabase = getSupabase();
 
   // Step 1: Extract clauses
   onProgress?.('Extracting contract clauses...');
   const step1System = `${GLOBAL_SYSTEM_PROMPT}\n\n${CONTRACT_CHAIN.step1_extractClauses.replace('{{text}}', '')}`;
-  const step1Response = await callGemini(step1System, contractText, '', { temperature: 0.0, responseMimeType: 'application/json' });
+  const step1Response = await callGemini(step1System, contractText, '', { temperature: 0.0, responseMimeType: 'application/json', onRetry });
   
   let extractedClauses;
   let productSummary: any = {};
@@ -114,7 +115,7 @@ export async function runContractChain(
 
   const combinedContext = `SCOMET CONTEXT:\n${scometContext}\n\nEAR CONTEXT:\n${earContext}`;
   const step2System = `${GLOBAL_SYSTEM_PROMPT}\n\n${CONTRACT_CHAIN.step2_retrieveRequirements.replace('{{context}}', '')}`;
-  const step2Response = await callGemini(step2System, 'Retrieve required clauses', combinedContext, { temperature: 0.0, responseMimeType: 'application/json' });
+  const step2Response = await callGemini(step2System, 'Retrieve required clauses', combinedContext, { temperature: 0.0, responseMimeType: 'application/json', onRetry });
 
   // Step 3: Assess adequacy
   onProgress?.('Assessing clause adequacy...');
@@ -122,7 +123,7 @@ export async function runContractChain(
     .replace('{{extracted_clauses}}', extractedClausesString)
     .replace('{{product_summary}}', productSummaryString)
     .replace('{{requirements}}', step2Response)}`;
-  const step3Response = await callGemini(step3System, 'Assess adequacy of clauses', combinedContext, { temperature: 0.0, responseMimeType: 'application/json' });
+  const step3Response = await callGemini(step3System, 'Assess adequacy of clauses', combinedContext, { temperature: 0.0, responseMimeType: 'application/json', onRetry });
   
   let adequacyAssessment: ClauseAudit[] = [];
     let step3Confidence = {
@@ -164,7 +165,7 @@ export async function runContractChain(
   // Step 4: List gaps
   onProgress?.('Identifying gaps and risks...');
   const step4System = `${GLOBAL_SYSTEM_PROMPT}\n\n${CONTRACT_CHAIN.step4_listGaps.replace('{{assessment}}', JSON.stringify(adequacyAssessment))}`;
-  const step4Response = await callGemini(step4System, 'List WEAK and MISSING clauses', '', { temperature: 0.0, responseMimeType: 'application/json' });
+  const step4Response = await callGemini(step4System, 'List WEAK and MISSING clauses', '', { temperature: 0.0, responseMimeType: 'application/json', onRetry });
   
   let gapList = [];
     try {
@@ -209,7 +210,7 @@ export async function runContractChain(
       const step5System = `${GLOBAL_SYSTEM_PROMPT}\n\n${CONTRACT_CHAIN.step5_generateLanguage
         .replace('{{gaps}}', JSON.stringify(gapList))
         .replace('{{product_summary}}', productSummaryString)}`;
-      const step5Response = await callGemini(step5System, 'Generate clause language', '', { temperature: 0.0, responseMimeType: 'application/json' });
+      const step5Response = await callGemini(step5System, 'Generate clause language', '', { temperature: 0.0, responseMimeType: 'application/json', onRetry });
 
       try {
         // NOTE: use parsedStep5 (no 'const' — assigns to outer let)

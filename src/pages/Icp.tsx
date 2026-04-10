@@ -147,6 +147,7 @@ export const Icp: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [loadingSteps, setLoadingSteps] = useState<string[]>([]);
   const [currentStep, setCurrentStep] = useState(0);
+  const [retryStatus, setRetryStatus] = useState<string | null>(null);
   const [result, setResult] = useState<ICPResult | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(() => {
@@ -218,17 +219,34 @@ export const Icp: React.FC = () => {
     setCurrentStep(0);
     try {
       const assessmentResult = await runICPChain(hasExistingIcp ? (uploadedFileText || '') : '', companyName, jurisdictions, (step) => {
+        setRetryStatus(null);
         if (step.includes('Extracting')) setCurrentStep(0);
         else if (step.includes('SCOMET')) setCurrentStep(1);
         else if (step.includes('EAR')) setCurrentStep(2);
         else if (step.includes('gaps')) setCurrentStep(3);
         else if (step.includes('SOP')) setCurrentStep(4);
         else if (step.includes('flow')) setCurrentStep(5);
-      });
+      },
+        (attempt, delayMs, reason) => {
+          setRetryStatus(
+            `Gemini ${reason === '429 rate-limit' ? 'rate limited' : 'overloaded'} — retrying in ${Math.round(delayMs / 1000)}s (attempt ${attempt}/6)`
+          );
+          setTimeout(() => setRetryStatus(null), delayMs + 200);
+        }
+      );
       setResult(assessmentResult);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Assessment failed:', err);
-      setError('An error occurred during the assessment. Please check your connection and try again.');
+      const errMsg = String(err?.message || JSON.stringify(err) || '');
+      if (errMsg.includes('503') || errMsg.includes('UNAVAILABLE')) {
+        setError('Gemini is temporarily overloaded (Google-side issue). This is not a problem with your input or connection. Please wait 2–3 minutes and click Retry — your next attempt will likely succeed.');
+      } else if (errMsg.includes('429') || errMsg.includes('RESOURCE_EXHAUSTED')) {
+        setError('Gemini API rate limit reached. Please wait 1–2 minutes before retrying.');
+      } else if (errMsg.includes('empty response')) {
+        setError('Gemini returned an empty response — this occasionally happens on complex inputs. Please retry.');
+      } else {
+        setError('An error occurred during the assessment. Please check your connection and try again.');
+      }
     } finally { setIsLoading(false); }
   };
 
@@ -515,6 +533,17 @@ export const Icp: React.FC = () => {
           {isLoading && (
             <div className="rounded-2xl border p-8 shadow-sm" style={{ background: T.surface, borderColor: T.border }}>
               <LoadingSteps steps={loadingSteps} currentStepIndex={currentStep} />
+              {retryStatus && (
+                <div style={{
+                  marginTop: 12, padding: '9px 14px', borderRadius: 8,
+                  background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.25)',
+                  fontSize: 12, color: '#B7791F', fontFamily: 'var(--font-body)',
+                  display: 'flex', alignItems: 'center', gap: 8,
+                }}>
+                  <span style={{ fontSize: 14 }}>⚠️</span>
+                  <span>{retryStatus}</span>
+                </div>
+              )}
             </div>
           )}
 

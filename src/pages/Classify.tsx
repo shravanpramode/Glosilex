@@ -387,6 +387,7 @@ export const Classify: React.FC = () => {
   const [error, setError]                 = useState<string | null>(null);
   const [loadingSteps, setLoadingSteps]   = useState<string[]>([]);
   const [currentStep, setCurrentStep]     = useState(0);
+  const [retryStatus, setRetryStatus] = useState<string | null>(null);
   const [result, setResult]               = useState<ClassificationResult | null>(null);
   const [userId, setUserId]               = useState<string | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(() => {
@@ -504,17 +505,31 @@ export const Classify: React.FC = () => {
       const classificationResult = await runClassificationChain(
         productDesc, pdfText, jurisdictions,
         (stepMsg) => {
+          setRetryStatus(null);
           const index = steps.findIndex(s => stepMsg.includes(s.replace('...', '')));
           if (index !== -1) setCurrentStep(index);
+        },
+        (attempt, delayMs, reason) => {
+          setRetryStatus(
+            `Gemini ${reason === '429 rate-limit' ? 'rate limited' : 'overloaded'} — retrying in ${Math.round(delayMs / 1000)}s (attempt ${attempt}/6)`
+          );
+          setTimeout(() => setRetryStatus(null), delayMs + 200);
         }
       );
       setResult(classificationResult);
-    } catch (err) {
-      console.error('Classification error:', err);
-      setError('An error occurred during classification. Please check your connection and try again.');
-    } finally {
-      setIsLoading(false);
-    }
+    } catch (err: any) {
+      console.error('Assessment failed:', err);
+      const errMsg = String(err?.message || JSON.stringify(err) || '');
+      if (errMsg.includes('503') || errMsg.includes('UNAVAILABLE')) {
+        setError('Gemini is temporarily overloaded (Google-side issue). This is not a problem with your input or connection. Please wait 2–3 minutes and click Retry — your next attempt will likely succeed.');
+      } else if (errMsg.includes('429') || errMsg.includes('RESOURCE_EXHAUSTED')) {
+        setError('Gemini API rate limit reached. Please wait 1–2 minutes before retrying.');
+      } else if (errMsg.includes('empty response')) {
+        setError('Gemini returned an empty response — this occasionally happens on complex inputs. Please retry.');
+      } else {
+        setError('An error occurred during the assessment. Please check your connection and try again.');
+      }
+    } finally { setIsLoading(false); }
   };
 
   const handleAskFollowUp = () => {
@@ -1150,6 +1165,17 @@ export const Classify: React.FC = () => {
         {isLoading ? (
           <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <LoadingSteps steps={loadingSteps} currentStepIndex={currentStep} />
+            {retryStatus && (
+              <div style={{
+                marginTop: 12, padding: '9px 14px', borderRadius: 8,
+                background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.25)',
+                fontSize: 12, color: '#B7791F', fontFamily: 'var(--font-body)',
+                display: 'flex', alignItems: 'center', gap: 8,
+              }}>
+                <span style={{ fontSize: 14 }}>⚠️</span>
+                <span>{retryStatus}</span>
+              </div>
+            )}
           </div>
 
         /* ── Error ──────────────────────────────────────────────────── */

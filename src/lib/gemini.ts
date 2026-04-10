@@ -14,9 +14,9 @@ const GEMINI_MODEL = 'gemini-2.5-flash';
 // No TypeScript generics used — takes and returns Promise<string> directly.
 // Retries on 503 UNAVAILABLE and 429 RESOURCE_EXHAUSTED with exponential backoff.
 // Attempt schedule: instant → wait 3s → wait 9s → wait 27s → throw
-async function callWithRetry(fn: () => Promise<string>): Promise<string> {
-  const BASE_DELAY_MS = 3000;
-  const MAX_ATTEMPTS = 4;
+async function callWithRetry(fn: () => Promise<string>, onRetry?: (attempt: number, delayMs: number, reason: string) => void): Promise<string> {
+  const BASE_DELAY_MS = 2000;
+  const MAX_ATTEMPTS = 6;
   let lastError: any;
 
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
@@ -45,6 +45,7 @@ async function callWithRetry(fn: () => Promise<string>): Promise<string> {
         '[Silex] Gemini ' + label + ' — retrying in ' +
         Math.round(delayMs / 1000) + 's (attempt ' + attempt + '/' + MAX_ATTEMPTS + ')'
       );
+      onRetry?.(attempt, delayMs, label);
       await new Promise(function(resolve) { setTimeout(resolve, delayMs); });
     }
   }
@@ -57,7 +58,7 @@ export async function callGemini(
   systemPrompt: string,
   userPrompt: string,
   retrievedChunks: string,
-  options?: { temperature?: number, responseMimeType?: string }
+  options?: { temperature?: number, responseMimeType?: string, onRetry?: (attempt: number, delayMs: number, reason: string) => void }
 ): Promise<string> {
   const ai = getGemini();
 
@@ -85,7 +86,7 @@ export async function callGemini(
       }
       return text;
     });
-  });
+  }, options?.onRetry);
 }
 
 export async function retrieveAndAnswer(
