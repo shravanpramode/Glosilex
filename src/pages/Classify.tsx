@@ -251,6 +251,13 @@ function cleanMarkdownForDisplay(raw: string): string {
     '\n'
   );
 
+  // Strip Executive Summary table block — rendered separately by SectionExecSummary component
+  // Handles both "## Executive Summary" heading and inline "Executive Summary" label forms
+  text = text.replace(
+    /\n?#{1,3}\s*Executive Summary[^\n]*\n[\s\S]*?(?=\n#{1,3}\s|\n\*\*[A-Z]|$)/gi,
+    '\n'
+  );
+
   // Collapse 3+ blank lines to max 2
   text = text.replace(/\n{3,}/g, '\n\n');
 
@@ -267,7 +274,17 @@ function extractExecSummaryFromMarkdown(raw: string): {
   if (!raw) return null;
   const tableMatch = raw.match(/\|?\s*Factor\s*\|[\s\S]*?(?=\n\n|\n#{1,3}|\n\*\*[A-Z]|$)/im);
   if (!tableMatch) return null;
-  const rows = tableMatch[0].split('\n').filter(l => l.includes('|') && !l.match(/^[\s|:-]+$/));
+  const rawTable = tableMatch[0];
+  // Gemini 2.5 Flash sometimes outputs the table all on one line with no \n between rows.
+  // Handle both multi-line (normal GFM) and single-line (Gemini collapsed) formats.
+  let rows: string[];
+  if (rawTable.includes('\n')) {
+    rows = rawTable.split('\n').filter(l => l.includes('|') && !l.match(/^[\s|:-]+$/));
+  } else {
+    // Single-line: "| Factor | Assessment | |---| | Risk Rating | HIGH | ..."
+    // Split on "| |" boundaries to recover individual rows
+    rows = rawTable.split(/\|\s*(?=\|)/).map(s => s.trim()).filter(s => s && !s.match(/^[-:\s|]+$/));
+  }
   const get = (key: string) => {
     const row = rows.find(r => r.toLowerCase().includes(key.toLowerCase()));
     if (!row) return '';
@@ -1302,8 +1319,16 @@ export const Classify: React.FC = () => {
                         letterSpacing: '0.12em', color: 'var(--color-glosilex-teal-dim,#00B5A8)',
                         fontFamily: T.heading,
                       }}>Detailed Analysis</span>
-                      <div style={{ flex: 1, height: 1, background: T.divider }} />
+                    <div style={{ flex: 1, height: 1, background: T.divider }} />
                     </div>
+                    <SectionExecSummary
+                      raw={result.scometFinding}
+                      confidenceLabel={
+                        (result.finalDetermination?.scomet?.confidence ||
+                         extractConfidence(result.scometFinding) ||
+                         'MEDIUM').toUpperCase()
+                      }
+                    />
                     <div className="glosilex-md" style={{ fontSize: 13, color: T.body, lineHeight: 1.78, fontFamily: T.font }}>
                       <ReactMarkdown remarkPlugins={[remarkGfm]} components={{
                         p: ({ children, ...props }) => {
@@ -1376,10 +1401,18 @@ export const Classify: React.FC = () => {
                         fontFamily: T.heading,
                       }}>Detailed Analysis</span>
                       <div style={{ flex: 1, height: 1, background: T.divider }} />
-                    </div>
-                    <div className="glosilex-md" style={{ fontSize: 13, color: T.body, lineHeight: 1.78, fontFamily: T.font }}>
-                      <ReactMarkdown remarkPlugins={[remarkGfm]} components={{
-                        p: ({ children, ...props }) => {
+                      </div>
+                      <SectionExecSummary
+                        raw={result.earFinding}
+                        confidenceLabel={
+                          (result.finalDetermination?.ear?.confidence ||
+                          extractConfidence(result.earFinding) ||
+                          'MEDIUM').toUpperCase()
+                        }
+                      />
+                      <div className="glosilex-md" style={{ fontSize: 13, color: T.body, lineHeight: 1.78, fontFamily: T.font }}>
+                        <ReactMarkdown remarkPlugins={[remarkGfm]} components={{
+                          p: ({ children, ...props }) => {
                           const text = typeof children === 'string' ? children : Array.isArray(children) ? children.join('') : '';
                           if (text.includes('⚠️') && (text.includes('Dual Jurisdiction') || text.includes('dual jurisdiction'))) {
                             return <div className="glosilex-dj-banner"><p>{children}</p></div>;
