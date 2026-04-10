@@ -9,7 +9,7 @@ import {
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { extractTextFromFile, getFileTypeLabel } from '../utils/fileParser';
-import { runICPChain, ICPResult, ICPGap, DocFlowStep } from '../lib/icpService';
+import { runICPChain, ICPResult, ICPGap, DocFlowStep, PartialICPData } from '../lib/icpService';
 import { normalizeICPResult } from '../lib/reportService';
 import { LoadingSteps } from '../components/LoadingSteps';
 import { RiskBadge } from '../components/RiskBadge';
@@ -148,6 +148,7 @@ export const Icp: React.FC = () => {
   const [loadingSteps, setLoadingSteps] = useState<string[]>([]);
   const [currentStep, setCurrentStep] = useState(0);
   const [retryStatus, setRetryStatus] = useState<string | null>(null);
+  const [partialIcpData, setPartialIcpData] = useState<PartialICPData | null>(null);
   const [result, setResult] = useState<ICPResult | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(() => {
@@ -210,7 +211,8 @@ export const Icp: React.FC = () => {
   const handleJurisdictionToggle = (j: string) =>
     setJurisdictions(prev => prev.includes(j) ? prev.filter(x => x !== j) : [...prev, j]);
 
-  const handleRunAssessment = async () => {
+  const handleRunAssessment = async (resumeFromPartial = false) => {
+    if (!resumeFromPartial) setPartialIcpData(null);
     if (!companyName.trim()) { alert('Please enter a company name.'); return; }
     if (jurisdictions.length === 0) { alert('Please select at least one jurisdiction.'); return; }
     if (hasExistingIcp && !uploadedFileText) { alert('Please upload an ICP document or select "Start fresh".'); return; }
@@ -218,23 +220,30 @@ export const Icp: React.FC = () => {
     setLoadingSteps(['Extracting ICP structure...','Mapping against SCOMET requirements...','Mapping against EAR requirements...','Identifying compliance gaps...','Generating SOP language...','Building documentation flow...']);
     setCurrentStep(0);
     try {
-      const assessmentResult = await runICPChain(hasExistingIcp ? (uploadedFileText || '') : '', companyName, jurisdictions, (step) => {
-        setRetryStatus(null);
-        if (step.includes('Extracting')) setCurrentStep(0);
-        else if (step.includes('SCOMET')) setCurrentStep(1);
-        else if (step.includes('EAR')) setCurrentStep(2);
-        else if (step.includes('gaps')) setCurrentStep(3);
-        else if (step.includes('SOP')) setCurrentStep(4);
-        else if (step.includes('flow')) setCurrentStep(5);
-      },
+      const assessmentResult = await runICPChain(
+        hasExistingIcp ? (uploadedFileText || '') : '',
+        companyName,
+        jurisdictions,
+        (step) => {
+          setRetryStatus(null);
+          if (step.includes('Extracting')) setCurrentStep(0);
+          else if (step.includes('SCOMET')) setCurrentStep(1);
+          else if (step.includes('EAR')) setCurrentStep(2);
+          else if (step.includes('gaps') || step.includes('gap')) setCurrentStep(3);
+          else if (step.includes('SOP')) setCurrentStep(4);
+          else if (step.includes('flow')) setCurrentStep(5);
+        },
         (attempt, delayMs, reason) => {
           setRetryStatus(
             `Gemini ${reason === '429 rate-limit' ? 'rate limited' : 'overloaded'} — retrying in ${Math.round(delayMs / 1000)}s (attempt ${attempt}/6)`
           );
           setTimeout(() => setRetryStatus(null), delayMs + 200);
-        }
+        },
+        (partial) => setPartialIcpData(partial),
+        resumeFromPartial ? (partialIcpData ?? undefined) : undefined
       );
       setResult(assessmentResult);
+      setPartialIcpData(null);
     } catch (err: any) {
       console.error('Assessment failed:', err);
       const errMsg = String(err?.message || JSON.stringify(err) || '');
@@ -495,7 +504,7 @@ export const Icp: React.FC = () => {
           {/* ── CTA ── */}
           <div className="flex-shrink-0 px-3 py-3 border-t" style={{ borderColor: T.border, background: T.surface }}>
             <button
-              onClick={handleRunAssessment}
+              onClick={() => handleRunAssessment(!!partialIcpData)}
               disabled={isLoading || !companyName || (hasExistingIcp && !uploadedFileText) || jurisdictions.length === 0}
               className="w-full flex justify-center items-center gap-2 py-3 px-4 rounded-xl text-sm font-bold text-white transition-all duration-200 min-h-[44px] disabled:opacity-40 disabled:cursor-not-allowed"
               style={{ background: T.teal, boxShadow: '0 2px 10px rgba(79,152,163,0.28)' }}
@@ -557,11 +566,30 @@ export const Icp: React.FC = () => {
               </div>
               <h3 className="text-base font-bold mb-2" style={{ color: T.text, fontFamily: 'var(--font-heading)' }}>Assessment Failed</h3>
               <p className="mb-5 text-sm" style={{ color: T.muted }}>{error}</p>
-              <button onClick={handleRunAssessment}
+              <button onClick={() => handleRunAssessment(!!partialIcpData)}
                 className="font-semibold py-2.5 px-6 rounded-xl text-white text-sm transition-colors min-h-[44px]"
                 style={{ background: T.teal }}>
-                Retry Assessment
+                {partialIcpData
+                  ? `Resume from Step ${partialIcpData.lastCompletedStep + 1} of 6`
+                  : 'Retry Assessment'}
               </button>
+              {partialIcpData && (
+                <button
+                  onClick={() => handleRunAssessment(false)}
+                  style={{
+                    marginTop: 8,
+                    padding: '8px 18px',
+                    borderRadius: 8,
+                    border: `1px solid ${T.border}`,
+                    background: 'transparent',
+                    color: T.muted,
+                    fontSize: 12,
+                    cursor: 'pointer',
+                  }}
+                >
+                  Start Fresh Instead
+                </button>
+              )}              
             </div>
           )}
 

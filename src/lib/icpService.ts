@@ -34,6 +34,17 @@ export interface ICPResult {
   chunksUsed?: any[];
 }
 
+export interface PartialICPData {
+  lastCompletedStep: 1 | 2 | 3 | 4 | 5;
+  extractedStructure?: any;
+  structureString?: string;
+  scometMapping?: string;
+  earMapping?: string;
+  allChunks?: any[];
+  gapList?: ICPGap[];
+  gapListWithSop?: ICPGap[];
+}
+
 const ICP_COMPONENTS = [
   "Management Commitment & Policy Statement",
   "Export Control Officer Appointment",
@@ -169,29 +180,42 @@ export async function runICPChain(
   companyName: string,
   jurisdictions: string[],
   onProgress?: (step: string) => void,
-  onRetry?: (attempt: number, delayMs: number, reason: string) => void
+  onRetry?: (attempt: number, delayMs: number, reason: string) => void,
+  onStepComplete?: (partial: PartialICPData) => void,
+  partialData?: PartialICPData
 ): Promise<ICPResult> {
   const supabase = getSupabase();
   const input = icpText.trim() ? icpText : "No ICP provided";
 
   // Step 1: Extract ICP structure
-  onProgress?.('Extracting ICP structure...');
-  const step1System = `${GLOBAL_SYSTEM_PROMPT}\n\n${ICP_CHAIN.step1_extractStructure.replace('{{text}}', '')}`;
-  const step1Response = await callGemini(step1System, input, '', { temperature: 0.0, responseMimeType: 'application/json', onRetry });
-  
-  let extractedStructure;
-  try {
-    extractedStructure = JSON.parse(step1Response);
-  } catch (e) {
-    console.error('Failed to parse Step 1 JSON:', step1Response);
-    extractedStructure = { raw: step1Response };
+  let extractedStructure: any;
+  let structureString: string;
+  if (partialData && partialData.lastCompletedStep >= 1 && partialData.extractedStructure) {
+    onProgress?.('Extracting ICP structure...');
+    extractedStructure = partialData.extractedStructure;
+    structureString = partialData.structureString!;
+  } else {
+    onProgress?.('Extracting ICP structure...');
+    const step1System = `${GLOBAL_SYSTEM_PROMPT}\n\n${ICP_CHAIN.step1_extractStructure.replace('{{text}}', '')}`;
+    const step1Response = await callGemini(step1System, input, '', { temperature: 0.0, responseMimeType: 'application/json', onRetry });
+    try {
+      extractedStructure = JSON.parse(step1Response);
+    } catch (e) {
+      console.error('Failed to parse Step 1 JSON:', step1Response);
+      extractedStructure = { raw: step1Response };
+    }
+    structureString = JSON.stringify(extractedStructure);
+    onStepComplete?.({ lastCompletedStep: 1, extractedStructure, structureString });
   }
-  const structureString = JSON.stringify(extractedStructure);
 
   // Step 2: Map against SCOMET requirements - Implemented HyDE (scometIcpQuery)
   let scometMapping = 'Not evaluated (SCOMET not selected)';
   let allChunks: any[] = [];
-  if (jurisdictions.includes('SCOMET_INDIA')) {
+  if (partialData && partialData.lastCompletedStep >= 2) {
+    onProgress?.('Mapping against SCOMET requirements...');
+    scometMapping = partialData.scometMapping ?? 'Not evaluated (SCOMET not selected)';
+    allChunks = [...(partialData.allChunks ?? [])];
+  } else if (jurisdictions.includes('SCOMET_INDIA')) {
     await pause(1500);
     onProgress?.('Mapping against SCOMET requirements...');
     const scometIcpQuery = `SCOMET India DGFT export control program ICP requirements: management commitment policy statement export control officer appointment SCOMET list Category 8A 6A 3A product classification procedures customer end-user screening transaction red flag review license determination recordkeeping 5 years employee training audit monitoring violation reporting escalation third-party intermediary controls technology transfer deemed export sanctions entity list screening DGFT Foreign Trade Policy`;
@@ -210,11 +234,16 @@ export async function runICPChain(
     
     const step2System = `${GLOBAL_SYSTEM_PROMPT}\n\n${ICP_CHAIN.step2_mapScomet.replace('{{icp_structure}}', structureString).replace('{{scomet_context}}', '')}`;
     scometMapping = await callGemini(step2System, 'Map against SCOMET', scometContext, { temperature: 0.0, responseMimeType: 'application/json', onRetry });
+    onStepComplete?.({ lastCompletedStep: 2, extractedStructure, structureString, scometMapping, allChunks: [...allChunks] });
   }
 
   // Step 3: Map against EAR requirements - Implemented HyDE (earIcpQuery)
   let earMapping = 'Not evaluated (EAR not selected)';
-  if (jurisdictions.includes('EAR_US')) {
+  if (partialData && partialData.lastCompletedStep >= 3) {
+    onProgress?.('Mapping against EAR requirements...');
+    earMapping = partialData.earMapping ?? 'Not evaluated (EAR not selected)';
+    allChunks = [...(partialData.allChunks ?? allChunks)]; // full SCOMET+EAR set
+  } else if (jurisdictions.includes('EAR_US')) {
     await pause(1500);
     onProgress?.('Mapping against EAR requirements...');
     const earIcpQuery = `US EAR BIS export compliance program ICP requirements: management commitment export control officer ECCN classification denied party screening license determination EAR99 recordkeeping 5 years training audit monitoring violation reporting deemed export technology transfer OFAC sanctions Consolidated Screening List Part 744 Part 764 15 CFR Bureau of Industry Security`;
@@ -233,64 +262,79 @@ export async function runICPChain(
     
     const step3System = `${GLOBAL_SYSTEM_PROMPT}\n\n${ICP_CHAIN.step3_mapEar.replace('{{icp_structure}}', structureString).replace('{{ear_context}}', '')}`;
     earMapping = await callGemini(step3System, 'Map against EAR', earContext, { temperature: 0.0, responseMimeType: 'application/json', onRetry });
+    onStepComplete?.({ lastCompletedStep: 3, extractedStructure, structureString, scometMapping, earMapping, allChunks: [...allChunks] });
   }
 
   // Step 4: Identify gaps — pass mappings as context, NOT embedded in system prompt
-  await pause(1500);
-  onProgress?.('Identifying compliance gaps...');
-  const step4PromptBase = ICP_CHAIN.step4_identifyGaps
-    .replace('{{scomet_mapping}}', '')
-    .replace('{{ear_mapping}}', '');
-  const step4System = `${GLOBAL_SYSTEM_PROMPT}\n\n${step4PromptBase}`;
-  const step4Context = `SCOMET MAPPING:\n${scometMapping}\n\nEAR MAPPING:\n${earMapping}`;
-  const step4Response = await callGemini(
-    step4System,
-    'Evaluate ALL 14 standard ICP components and return all of them in the output, including Present components.',
-    step4Context,
-    { temperature: 0.0, responseMimeType: 'application/json', onRetry }
-  );
+  let gapList: ICPGap[];
+  if (partialData && partialData.lastCompletedStep >= 4 && partialData.gapList) {
+    onProgress?.('Identifying compliance gaps...');
+    gapList = partialData.gapList;
+  } else {
+    await pause(1500);
+    onProgress?.('Identifying compliance gaps...');
+    const step4PromptBase = ICP_CHAIN.step4_identifyGaps
+      .replace('{{scomet_mapping}}', '')
+      .replace('{{ear_mapping}}', '');
+    const step4System = `${GLOBAL_SYSTEM_PROMPT}\n\n${step4PromptBase}`;
+    const step4Context = `SCOMET MAPPING:\n${scometMapping}\n\nEAR MAPPING:\n${earMapping}`;
+    const step4Response = await callGemini(
+      step4System,
+      'Evaluate ALL 14 standard ICP components and return all of them in the output, including Present components.',
+      step4Context,
+      { temperature: 0.0, responseMimeType: 'application/json', onRetry }
+    );
 
-  let gapList: ICPGap[] = parseArrayResponse(step4Response);
+    let gapList: ICPGap[] = parseArrayResponse(step4Response);
 
-  // Robust fallback: if step 4 returns fewer than 14, build directly from step 2/3 outputs
-  if (gapList.length < 14) {
-    console.warn(`Step 4 returned ${gapList.length} items — rebuilding from step 2/3 directly`);
-    gapList = buildGapListFromMappings(scometMapping, earMapping, jurisdictions);
-  }
-
-  // Safety net: ensure all 14 canonical names are represented
-  const existingComponents = new Set(gapList.map(g => g.component));
-  for (const comp of ICP_COMPONENTS) {
-    if (!existingComponents.has(comp)) {
-      gapList.push({
-        component: comp,
-        status: 'Missing',
-        jurisdiction: jurisdictions.length > 1 ? 'Both' : (jurisdictions[0] === 'SCOMET_INDIA' ? 'SCOMET' : 'EAR'),
-        priority: 'P2',
-        gapDescription: 'Component not evaluated — insufficient regulatory context retrieved.',
-        citation: 'N/A'
-      });
+    // Robust fallback: if step 4 returns fewer than 14, build directly from step 2/3 outputs
+    if (gapList.length < 14) {
+      console.warn(`Step 4 returned ${gapList.length} items — rebuilding from step 2/3 directly`);
+      gapList = buildGapListFromMappings(scometMapping, earMapping, jurisdictions);
     }
+
+    // Safety net: ensure all 14 canonical names are represented
+    const existingComponents = new Set(gapList.map(g => g.component));
+    for (const comp of ICP_COMPONENTS) {
+      if (!existingComponents.has(comp)) {
+        gapList.push({
+          component: comp,
+          status: 'Missing',
+          jurisdiction: jurisdictions.length > 1 ? 'Both' : (jurisdictions[0] === 'SCOMET_INDIA' ? 'SCOMET' : 'EAR'),
+          priority: 'P2',
+          gapDescription: 'Component not evaluated — insufficient regulatory context retrieved.',
+          citation: 'N/A'
+        });
+      }
+    }
+    onStepComplete?.({ lastCompletedStep: 4, extractedStructure, structureString, scometMapping, earMapping, allChunks: [...allChunks], gapList: [...gapList] });
   }
 
   // Step 5: Generate SOP text — pass gapList as context
-  await pause(1500);
-  onProgress?.('Generating SOP language...');
-  const step5PromptBase = ICP_CHAIN.step5_generateSop.replace('{{gaps}}', '');
-  const step5System = `${GLOBAL_SYSTEM_PROMPT}\n\n${step5PromptBase}`;
-  const step5Response = await callGemini(
-    step5System,
-    'Add sopText to every item in the gap list. Return the complete array with all 14 items.',
-    JSON.stringify(gapList),
-    { temperature: 0.0, responseMimeType: 'application/json', onRetry }
-  );
-
-  let gapListWithSop: ICPGap[] = gapList; // default: keep existing if step 5 fails
-  const step5Parsed = parseArrayResponse(step5Response);
-  if (step5Parsed.length >= 14) {
-    gapListWithSop = step5Parsed;
+  let gapListWithSop: ICPGap[];
+  if (partialData && partialData.lastCompletedStep >= 5 && partialData.gapListWithSop) {
+    onProgress?.('Generating SOP language...');
+    gapListWithSop = partialData.gapListWithSop;
   } else {
-    console.warn(`Step 5 returned ${step5Parsed.length} items — keeping step 4 gap list without SOP text`);
+    await pause(1500);
+    onProgress?.('Generating SOP language...');
+    const step5PromptBase = ICP_CHAIN.step5_generateSop.replace('{{gaps}}', '');
+    const step5System = `${GLOBAL_SYSTEM_PROMPT}\n\n${step5PromptBase}`;
+    const step5Response = await callGemini(
+      step5System,
+      'Add sopText to every item in the gap list. Return the complete array with all 14 items.',
+      JSON.stringify(gapList),
+      { temperature: 0.0, responseMimeType: 'application/json', onRetry }
+    );
+
+    gapListWithSop = gapList; // default: keep existing if step 5 fails
+    const step5Parsed = parseArrayResponse(step5Response);
+    if (step5Parsed.length >= 14) {
+      gapListWithSop = step5Parsed;
+    } else {
+      console.warn(`Step 5 returned ${step5Parsed.length} items — keeping step 4 gap list without SOP text`);
+    }
+    onStepComplete?.({ lastCompletedStep: 5, extractedStructure, structureString, scometMapping, earMapping, allChunks: [...allChunks], gapList, gapListWithSop });
   }
 
   // Step 6: Build documentation flow — pass analysis data as context
