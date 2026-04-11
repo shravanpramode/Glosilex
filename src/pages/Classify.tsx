@@ -1361,15 +1361,7 @@ export const Classify: React.FC = () => {
                         fontFamily: T.heading,
                       }}>Detailed Analysis</span>
                     <div style={{ flex: 1, height: 1, background: T.divider }} />
-                    </div>
-                    <SectionExecSummary
-                      raw={result.scometFinding}
-                      confidenceLabel={
-                        (result.finalDetermination?.scomet?.confidence ||
-                         extractConfidence(result.scometFinding) ||
-                         'MEDIUM').toUpperCase()
-                      }
-                    />
+                    </div>                    
                     <div className="glosilex-md" style={{ fontSize: 13, color: T.body, lineHeight: 1.78, fontFamily: T.font }}>
                       <ReactMarkdown remarkPlugins={[remarkGfm]} components={{
                         p: ({ children, ...props }) => {
@@ -1442,15 +1434,7 @@ export const Classify: React.FC = () => {
                         fontFamily: T.heading,
                       }}>Detailed Analysis</span>
                       <div style={{ flex: 1, height: 1, background: T.divider }} />
-                      </div>
-                      <SectionExecSummary
-                        raw={result.earFinding}
-                        confidenceLabel={
-                          (result.finalDetermination?.ear?.confidence ||
-                          extractConfidence(result.earFinding) ||
-                          'MEDIUM').toUpperCase()
-                        }
-                      />
+                      </div>                      
                       <div className="glosilex-md" style={{ fontSize: 13, color: T.body, lineHeight: 1.78, fontFamily: T.font }}>
                         <ReactMarkdown remarkPlugins={[remarkGfm]} components={{
                           p: ({ children, ...props }) => {
