@@ -129,10 +129,34 @@ function buildGapListFromMappings(
       statusRank[scStatus] <= statusRank[ecStatus] ? scStatus : ecStatus;
 
     let jurisdiction = 'Both';
-    if (jurisdictions.includes('SCOMET_INDIA') && !jurisdictions.includes('EAR_US')) jurisdiction = 'SCOMET';
-    else if (jurisdictions.includes('EAR_US') && !jurisdictions.includes('SCOMET_INDIA')) jurisdiction = 'EAR';
-    else if (scStatus === 'Missing' && ecStatus !== 'Missing') jurisdiction = 'SCOMET';
-    else if (ecStatus === 'Missing' && scStatus !== 'Missing') jurisdiction = 'EAR';
+    if (jurisdictions.includes('SCOMET_INDIA') && !jurisdictions.includes('EAR_US')) {
+      jurisdiction = 'SCOMET';
+    } else if (jurisdictions.includes('EAR_US') && !jurisdictions.includes('SCOMET_INDIA')) {
+      jurisdiction = 'EAR';
+    } else {
+      // Both jurisdictions selected — derive from component-specific rules
+      // Components where the gap is predominantly EAR-specific when SCOMET is partially/fully addressed
+      const earSpecificComponents = [
+        'Technology Transfer & Deemed Export Controls',
+        'Sanctions & Entity List Screening',
+      ];
+      // Components where the gap is predominantly SCOMET-specific (rare — usually both)
+      const scometSpecificComponents: string[] = [];
+
+      if (earSpecificComponents.includes(compName)) {
+        // Only assign EAR if SCOMET status is better than EAR status
+        if (statusRank[scStatus] > statusRank[ecStatus]) jurisdiction = 'EAR';
+        else jurisdiction = 'Both';
+      } else if (scometSpecificComponents.includes(compName)) {
+        if (statusRank[ecStatus] > statusRank[scStatus]) jurisdiction = 'SCOMET';
+        else jurisdiction = 'Both';
+      } else if (scStatus === 'Present' && ecStatus !== 'Present') {
+        jurisdiction = 'EAR';   // SCOMET satisfied, EAR gap only
+      } else if (ecStatus === 'Present' && scStatus !== 'Present') {
+        jurisdiction = 'SCOMET'; // EAR satisfied, SCOMET gap only
+      }
+      // else: both have gaps or both Present → keep 'Both'
+    }
 
     const criticalComponents = [
       'License Determination Procedures',

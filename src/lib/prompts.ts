@@ -675,10 +675,18 @@ Priority assignment rules:
 - P2: status is "Missing" OR "Partial" for any other non-critical component.
 - P3: status is "Present" ONLY. Never assign P3 to Missing or Partial, ever.
 
-Jurisdiction assignment rules:
-- "SCOMET": gap exists only in SCOMET mapping
-- "EAR": gap exists only in EAR mapping
-- "Both": gap exists in both, or component is Present in both
+Jurisdiction assignment rules — reason from the nature of the gap, NOT from which mapping it appears in:
+- "Both": use when the gap represents a deficit under BOTH frameworks simultaneously — i.e., the component is substantively required by SCOMET AND EAR and the ICP fails to satisfy either or both. Default to "Both" when the gap is about a procedure that should cover both jurisdictions (e.g. product classification missing entirely, training covering neither framework, license determination absent).
+- "SCOMET": use ONLY when the gap is exclusively about SCOMET obligations and the EAR equivalent is already satisfied. Example: management commitment explicitly covers EAR but is silent on SCOMET obligations. The EAR component is Present; the SCOMET component is not → assign "SCOMET".
+- "EAR": use ONLY when the gap is exclusively about EAR/BIS obligations and the SCOMET equivalent is adequately covered. Examples:
+  - Technology Transfer & Deemed Export Controls: if the ICP lacks a deemed export procedure for foreign national access but does have general technology transfer controls → "EAR" (deemed export is an EAR-specific concept under §734.13)
+  - Sanctions & Entity List Screening: if the ICP already screens against UN Security Council and DGFT denied entities lists (adequate for SCOMET) but omits BIS Entity List, Denied Persons List, and Unverified List → "EAR" (the missing lists are BIS-specific)
+  - Management Commitment: if the ICP has a strong SCOMET commitment statement but no reference to EAR/FDPR obligations → "EAR" (the SCOMET component is Present; the EAR component is Partial/Missing)
+  - Employee Training: if training explicitly covers SCOMET regulations only, omitting EAR/FDPR → "EAR"
+  - Violation Reporting: if reporting procedures cover SCOMET violations only, omitting BIS reporting → "EAR"
+  - Third-Party Controls: if distributor agreement addresses SCOMET re-export restrictions only, omitting EAR §758.3 re-export clauses → "EAR"
+- When ONLY ONE jurisdiction is selected by the user: all components take that single jurisdiction value. Never assign "Both".
+  ANTI-PATTERN — never assign "Both" purely because both mappings were evaluated. "Both" means the gap itself requires action under BOTH frameworks. If SCOMET is already Present for a component and only EAR is Partial/Missing, the jurisdiction is "EAR", not "Both".
 
 
 CRITICAL: Only use words that literally appear in the uploaded document.
