@@ -364,7 +364,7 @@ export async function runContractChain(
   
   // ── Save to Supabase ───────────────────────────────────────────────────
     const { data: authData } = await supabase.auth.getUser();
-    const userId = authData?.user?.id || 'anonymous';
+    const userId = authData?.user?.id ?? null;
 
     const { data: savedData, error } = await supabase.from('contract_results').insert({
       user_id: userId,

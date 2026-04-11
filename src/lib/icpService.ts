@@ -2,7 +2,6 @@ import { callGemini } from './gemini';
 import { getSupabase } from '../services/supabase';
 import { embedText } from '../services/embeddings';
 import { ICP_CHAIN, GLOBAL_SYSTEM_PROMPT } from './prompts';
-import { generateHypotheticalDoc } from './hyde';
 
 const pause = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -35,7 +34,7 @@ export interface ICPResult {
 }
 
 export interface PartialICPData {
-  lastCompletedStep: 1 | 2 | 3 | 4 | 5;
+  lastCompletedStep: 1 | 2 | 3 | 4 | 5 | 6;
   extractedStructure?: any;
   structureString?: string;
   scometMapping?: string;
@@ -211,18 +210,15 @@ export async function runICPChain(
   // Step 2: Map against SCOMET requirements - Implemented HyDE (scometIcpQuery)
   let scometMapping = 'Not evaluated (SCOMET not selected)';
   let allChunks: any[] = [];
-  if (partialData && partialData.lastCompletedStep >= 2) {
+  if (partialData && partialData.lastCompletedStep >= 2 && partialData.allChunks && partialData.allChunks.length > 0) {
     onProgress?.('Mapping against SCOMET requirements...');
     scometMapping = partialData.scometMapping ?? 'Not evaluated (SCOMET not selected)';
     allChunks = [...(partialData.allChunks ?? [])];
   } else if (jurisdictions.includes('SCOMET_INDIA')) {
     await pause(1500);
     onProgress?.('Mapping against SCOMET requirements...');
-    const scometIcpQuery = `SCOMET India DGFT export control program ICP requirements: management commitment policy statement export control officer appointment SCOMET list Category 8A 6A 3A product classification procedures customer end-user screening transaction red flag review license determination recordkeeping 5 years employee training audit monitoring violation reporting escalation third-party intermediary controls technology transfer deemed export sanctions entity list screening DGFT Foreign Trade Policy`;
-    const scometIcpHyde = await generateHypotheticalDoc(
-      `SCOMET India ICP internal compliance program requirements: ${scometIcpQuery}`
-    );
-    const scometIcpEmbedding = await embedText(scometIcpHyde);
+    const scometIcpQuery = `SCOMET India DGFT export control program ICP requirements: management commitment policy statement export control officer appointment SCOMET list Category 8A 6A 3A product classification procedures customer end-user screening transaction red flag review license determination recordkeeping 5 years employee training audit monitoring violation reporting escalation third-party intermediary controls technology transfer deemed export sanctions entity list screening DGFT Foreign Trade Policy`;    
+    const scometIcpEmbedding = await embedText(scometIcpQuery);
     const { data: scometChunks } = await supabase.rpc('hybrid_search', {
       query_embedding: scometIcpEmbedding,
       query_text: scometIcpQuery,
@@ -239,18 +235,15 @@ export async function runICPChain(
 
   // Step 3: Map against EAR requirements - Implemented HyDE (earIcpQuery)
   let earMapping = 'Not evaluated (EAR not selected)';
-  if (partialData && partialData.lastCompletedStep >= 3) {
+  if (partialData && partialData.lastCompletedStep >= 3 && partialData.allChunks && partialData.allChunks.length > 0) {
     onProgress?.('Mapping against EAR requirements...');
     earMapping = partialData.earMapping ?? 'Not evaluated (EAR not selected)';
-    allChunks = [...(partialData.allChunks ?? allChunks)]; // full SCOMET+EAR set
+    allChunks = [...(partialData.allChunks ?? allChunks)];
   } else if (jurisdictions.includes('EAR_US')) {
     await pause(1500);
     onProgress?.('Mapping against EAR requirements...');
-    const earIcpQuery = `US EAR BIS export compliance program ICP requirements: management commitment export control officer ECCN classification denied party screening license determination EAR99 recordkeeping 5 years training audit monitoring violation reporting deemed export technology transfer OFAC sanctions Consolidated Screening List Part 744 Part 764 15 CFR Bureau of Industry Security`;
-    const earIcpHyde = await generateHypotheticalDoc(
-      `US EAR BIS export compliance program requirements: ${earIcpQuery}`
-    );
-    const earIcpEmbedding = await embedText(earIcpHyde);
+    const earIcpQuery = `US EAR BIS export compliance program ICP requirements: management commitment export control officer ECCN classification denied party screening license determination EAR99 recordkeeping 5 years training audit monitoring violation reporting deemed export technology transfer OFAC sanctions Consolidated Screening List Part 744 Part 764 15 CFR Bureau of Industry Security`;    
+    const earIcpEmbedding = await embedText(earIcpQuery);
     const { data: earChunks } = await supabase.rpc('hybrid_search', {
       query_embedding: earIcpEmbedding,
       query_text: earIcpQuery,
@@ -285,7 +278,7 @@ export async function runICPChain(
       { temperature: 0.0, responseMimeType: 'application/json', onRetry }
     );
 
-    let gapList: ICPGap[] = parseArrayResponse(step4Response);
+    gapList = parseArrayResponse(step4Response);
 
     // Robust fallback: if step 4 returns fewer than 14, build directly from step 2/3 outputs
     if (gapList.length < 14) {
@@ -350,6 +343,7 @@ export async function runICPChain(
   );
 
   let docFlow: DocFlowStep[] = parseArrayResponse(step6Response);
+  onStepComplete?.({ lastCompletedStep: 6, extractedStructure, structureString, scometMapping, earMapping, allChunks: [...allChunks], gapList, gapListWithSop });
 
   // Calculate scores
   const overallScore = calculateScore(gapListWithSop);
@@ -359,7 +353,7 @@ export async function runICPChain(
   // Save to Supabase
   onProgress?.('Saving results...');
   const { data: authData } = await supabase.auth.getUser();
-  const userId = authData?.user?.id || 'anonymous';
+  const userId = authData?.user?.id ?? null;
 
   const { data: savedData, error } = await supabase.from('icp_results').insert({
     user_id: userId,

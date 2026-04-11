@@ -1315,8 +1315,8 @@ export const Classify: React.FC = () => {
                     accent
                     right={
                       <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                        <RiskPill level={result.finalDetermination?.scomet?.controlled === true ? 'HIGH' : result.finalDetermination?.scomet?.controlled === null ? 'MEDIUM' : 'LOW'} />
-                        <ConfChip label={result.finalDetermination?.scomet?.confidence || extractConfidence(result.scometFinding) || 'LOW'} />
+                        <RiskPill level={getPanelRisk('scomet')} />
+                        <ConfChip label={(result.finalDetermination?.scomet?.confidence || extractConfidence(result.scometFinding) || 'LOW').toUpperCase()} />
                       </div>
                     }
                   />
@@ -1392,8 +1392,8 @@ export const Classify: React.FC = () => {
                     accent
                     right={
                       <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                        <RiskPill level={result.finalDetermination?.ear?.controlled ? 'HIGH' : 'LOW'} />
-                        <ConfChip label={result.finalDetermination?.ear?.confidence || extractConfidence(result.earFinding) || 'LOW'} />
+                        <RiskPill level={getPanelRisk('ear')} />
+                        <ConfChip label={(result.finalDetermination?.ear?.confidence || extractConfidence(result.earFinding) || 'LOW').toUpperCase()} />
                       </div>
                     }
                   />

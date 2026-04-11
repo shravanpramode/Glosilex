@@ -568,7 +568,7 @@ Return a JSON object with EXACTLY this structure — no extra keys, no missing k
       "evidence": "<direct quote from the ICP proving presence, or 'Not found in ICP'>",
       "regulatoryRequirement": "<the specific SCOMET requirement this maps to>",
       "gapDescription": "<For Partial/Missing: describe specifically what is absent or inadequate. For Present: write one sentence stating what the ICP says and what requirement it satisfies — do NOT write 'Fully compliant'. Use the evidence quote as the basis for this sentence.>",
-      "citation": "<[Source: DOCUMENT_NAME, Section: X]>"
+      "citation": "<Always use [Source: UPLOADED DOCUMENT, Section: X] where X is the section name or heading in the ICP document where the evidence was found (e.g. Section: management_commitment). This field ALWAYS cites the ICP document — never cite a regulatory document name here. Only write [Source: UPLOADED DOCUMENT, Section: Not found] for Missing items where no ICP section exists.>"
     }
   ]
 }
@@ -652,7 +652,7 @@ Return a JSON object with EXACTLY this structure — no extra keys, no missing k
       "evidence": "<direct quote from the ICP proving presence, or 'Not found in ICP'>",
       "regulatoryRequirement": "<the specific EAR/BIS requirement this maps to>",
       "gapDescription": "<For Partial/Missing: describe specifically what is absent or inadequate. For Present: write one sentence stating what the ICP says and what requirement it satisfies — do NOT write 'Fully compliant'. Use the evidence quote as the basis for this sentence.>",
-      "citation": "<[Source: DOCUMENT_NAME, Section: X]>"
+      "citation": "<Always use [Source: UPLOADED DOCUMENT, Section: X] where X is the section name or heading in the ICP document where the evidence was found (e.g. Section: management_commitment). This field ALWAYS cites the ICP document — never cite a regulatory document name here. Only write [Source: UPLOADED DOCUMENT, Section: Not found] for Missing items where no ICP section exists.>"
     }
   ]
 }
@@ -731,7 +731,7 @@ Return a JSON array with EXACTLY 14 objects. Each object MUST have exactly these
   Never assign P3 to a Partial item.
 - gapDescription (string)
 - evidence (string — a direct quote or specific section reference from the ICP document proving the component's presence or absence. For Missing items use: "Not found in ICP document." For Present/Partial items quote the relevant text.)
-- citation (string)
+- citation (string) — COPY the citation character-for-character from the SCOMET or EAR mapping input. Never modify or drop the citation. It must follow the format [Source: UPLOADED DOCUMENT, Section: X]. If both SCOMET and EAR mappings have different citations, use the SCOMET citation as primary and append the EAR citation separated by a semicolon.
 
 SCOMET MAPPING: {{scomet_mapping}}
 EAR MAPPING: {{ear_mapping}}`,
@@ -742,7 +742,7 @@ SOP TEXT FORMAT RULES — follow these for EVERY item:
 - For "Missing" status: Generate a complete SOP clause (3-5 sentences). Start with "POLICY:" on line 1, then "PROCEDURE:" on line 2 with numbered steps, then "RECORD:" on line 3 citing the required documentation.
 - For "Partial" status: Generate a "REMEDIATION ADDENDUM" that supplements the existing language. Start with "ADD TO EXISTING CLAUSE:" and provide the specific missing elements.
 - For "Present" status: Write "No SOP action required. This component is adequately addressed." — do NOT generate a full clause for Present items.
-- Always end every sopText with: "Citation: [Source: DOCUMENT_NAME, Section: X]"
+- Always end every sopText with: "Citation: [Source: UPLOADED DOCUMENT, Section: X]" — where X is copied from the citation field in the input gap object. Never substitute a regulatory document name here. Never write [Source: EAR_CCL_Part774] or any regulatory document name in the sopText citation.
 - Use plain text only inside sopText. No markdown headers, no bold, no bullet symbols — use numbered steps instead.
 
 Return the EXACT SAME JSON array that was provided as input, with a "sopText" field added to EVERY object.

@@ -1,38 +1,49 @@
 import React from 'react';
-import { Loader2, CheckCircle2 } from 'lucide-react';
+import { Loader2, CheckCircle2, RefreshCw } from 'lucide-react';
+
+interface RetryInfo {
+  attempt: number;
+  delayMs: number;
+  reason: string;
+}
 
 interface Props {
   steps: string[];
   currentStepIndex: number;
+  retryInfo?: RetryInfo | null;
 }
 
-export const LoadingSteps: React.FC<Props> = ({ steps, currentStepIndex }) => {
+export const LoadingSteps: React.FC<Props> = ({ steps, currentStepIndex, retryInfo }) => {
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 my-4 max-w-md mx-auto">
-      <h3 className="text-sm font-semibold text-slate-800 mb-4 uppercase tracking-wider">Processing Request</h3>
-      <div className="space-y-4">
-        {steps.map((step, index) => {
-          const isCompleted = index < currentStepIndex;
-          const isCurrent = index === currentStepIndex;
-          const isPending = index > currentStepIndex;
+    <div className="flex flex-col gap-3 p-4">
+      <p className="text-sm font-semibold text-gray-600">Processing Request</p>
 
-          return (
-            <div key={index} className="flex items-center gap-3">
-              {isCompleted && <CheckCircle2 className="h-5 w-5 text-green-500 flex-shrink-0" />}
-              {isCurrent && <Loader2 className="h-5 w-5 text-indigo-500 animate-spin flex-shrink-0" />}
-              {isPending && <div className="h-5 w-5 rounded-full border-2 border-slate-200 flex-shrink-0" />}
-              
-              <span className={`text-sm font-medium ${
-                isCompleted ? 'text-slate-500 line-through' :
-                isCurrent ? 'text-indigo-700' :
-                'text-slate-400'
-              }`}>
-                {step}
-              </span>
-            </div>
-          );
-        })}
-      </div>
+      {steps.map((step, index) => {
+        const isCompleted = index < currentStepIndex;
+        const isCurrent = index === currentStepIndex;
+        const isPending = index > currentStepIndex;
+
+        return (
+          <div key={index} className={`flex items-center gap-2 text-sm ${
+            isCompleted ? 'text-green-600' :
+            isCurrent ? 'text-blue-600 font-medium' :
+            'text-gray-400'
+          }`}>
+            {isCompleted && <CheckCircle2 className="w-4 h-4 shrink-0" />}
+            {isCurrent && !retryInfo && <Loader2 className="w-4 h-4 shrink-0 animate-spin" />}
+            {isCurrent && retryInfo && <RefreshCw className="w-4 h-4 shrink-0 animate-spin text-amber-500" />}
+            {isPending && <div className="w-4 h-4 shrink-0 rounded-full border border-gray-300" />}
+            <span>{step}</span>
+          </div>
+        );
+      })}
+
+      {retryInfo && (
+        <div className="mt-2 rounded-md bg-amber-50 border border-amber-200 px-3 py-2 text-xs text-amber-700">
+          ⚠️ Gemini overloaded — retrying (attempt {retryInfo.attempt}, waiting {Math.round(retryInfo.delayMs / 1000)}s)…
+          <span className="block text-amber-500 mt-0.5">{retryInfo.reason}</span>
+        </div>
+      )}
     </div>
   );
 };

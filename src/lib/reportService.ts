@@ -228,7 +228,7 @@ export async function saveReport(
   const shareToken = crypto.randomUUID();
 
   const { data: authData } = await supabase.auth.getUser();
-  const userId = authData?.user?.id || 'anonymous';
+  const userId = authData?.user?.id ?? null;
 
   const { error } = await supabase.from('reports').insert({
     user_id: userId,

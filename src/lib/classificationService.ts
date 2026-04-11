@@ -393,7 +393,7 @@ export async function runClassificationChain(
   // ── Save to Supabase ────────────────────────────────────────────────────
   onProgress?.('Saving results...');
   const { data: authData } = await supabase.auth.getUser();
-  const userId = authData?.user?.id || 'anonymous';
+  const userId = authData?.user?.id ?? null;
 
   const { data: savedData, error } = await supabase
     .from('classification_results')

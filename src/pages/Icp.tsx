@@ -234,15 +234,13 @@ export const Icp: React.FC = () => {
           else if (step.includes('flow')) setCurrentStep(5);
         },
         (attempt, delayMs, reason) => {
-          setRetryStatus(
-            `Gemini ${reason === '429 rate-limit' ? 'rate limited' : 'overloaded'} — retrying in ${Math.round(delayMs / 1000)}s (attempt ${attempt}/6)`
-          );
-          setTimeout(() => setRetryStatus(null), delayMs + 200);
+          setRetryStatus(`Gemini ${reason.includes('429') ? 'rate limited' : 'overloaded'} — retrying in ${Math.round(delayMs / 1000)}s (attempt ${attempt}/6)`);
         },
         (partial) => setPartialIcpData(partial),
         resumeFromPartial ? (partialIcpData ?? undefined) : undefined
       );
       setResult(assessmentResult);
+      setRetryStatus(null);
       setPartialIcpData(null);
     } catch (err: any) {
       console.error('Assessment failed:', err);
@@ -1066,82 +1064,288 @@ export const Icp: React.FC = () => {
                 </div>
               )}
 
-              {/* ── Cross-Jurisdiction Analysis ── */}
-              {jurisdictions.includes('SCOMET_INDIA') && jurisdictions.includes('EAR_US') && (
+              {/* Cross-Jurisdiction Analysis — expanded */}
+              {jurisdictions.includes('SCOMET:INDIA') && jurisdictions.includes('EAR:US') && (
                 <div className="rounded-2xl border overflow-hidden" style={{ background: T.surface, borderColor: T.border }}>
-                  <RSection icon={<LayoutGrid className="w-3.5 h-3.5" />} title="Cross-Jurisdiction Analysis" subtitle="SCOMET ↔ EAR overlap" />
-                  <div className="p-5">
-                    {getDualJurisdictionProps(result) && (
-                      <div className="mb-4"><DualJurisdictionAlert {...getDualJurisdictionProps(result)!} /></div>
-                    )}
+                  <RSection
+                    icon={<LayoutGrid className="w-3.5 h-3.5" />}
+                    title="Cross-Jurisdiction Analysis"
+                    subtitle="SCOMET · EAR overlap · FDPR · Remediation priority"
+                  />
+                  <div className="p-5 space-y-5">
+
+                    {/* ── Sub-section A: Remediation Efficiency Map ── */}
                     {(() => {
-                      const sharedGaps = result.gapAnalysis.filter(g => g.jurisdiction === 'Both' && g.status !== 'Present');
-                      const scometOnly = result.gapAnalysis.filter(g => g.jurisdiction === 'SCOMET' && g.status !== 'Present');
-                      const earOnly = result.gapAnalysis.filter(g => g.jurisdiction === 'EAR' && g.status !== 'Present');
-                      const p1Both = result.gapAnalysis.filter(g => g.priority === 'P1' && g.status !== 'Present');
-                      const worstScore = Math.min(result.scometScore, result.earScore);
+                      const remediationGaps = result.gapAnalysis.filter(g => g.status !== 'Present');
+                      if (remediationGaps.length === 0) return null;
+
+                      // Effort heuristic based on priority + status
+                      const effortLabel = (gap: ICPGap) => {
+                        if (gap.priority === 'P1' && gap.status === 'Missing') return { label: 'High', color: '#ef4444' };
+                        if (gap.priority === 'P1' && gap.status === 'Partial') return { label: 'Medium', color: '#f59e0b' };
+                        if (gap.priority === 'P2') return { label: 'Medium', color: '#f59e0b' };
+                        return { label: 'Low — add one clause', color: '#10b981' };
+                      };
+
                       return (
-                        <div className="space-y-3">
-                          <div className="grid grid-cols-3 gap-3">
-                            {[
-                              { val: sharedGaps.length, label: 'Both Jurisdictions' },
-                              { val: scometOnly.length, label: 'SCOMET Only' },
-                              { val: earOnly.length, label: 'EAR Only' },
-                            ].map(({ val, label }) => (
-                              <div key={label} className="rounded-xl p-3 text-center border"
-                                style={{ background: T.bg, borderColor: T.border }}>
-                                <p className="text-xl font-bold" style={{ color: T.teal }}>{val}</p>
-                                <p className="text-[9px] font-semibold uppercase tracking-wide mt-0.5" style={{ color: T.muted }}>{label}</p>
-                              </div>
-                            ))}
-                          </div>
-                          <p className="text-sm leading-relaxed" style={{ color: T.body }}>
-                            {sharedGaps.length > 0
-                              ? `${sharedGaps.length} gap${sharedGaps.length > 1 ? 's' : ''} affect both SCOMET and EAR simultaneously — a single remediation effort advances compliance under both frameworks. `
-                              : 'No overlapping gaps were identified — SCOMET and EAR gaps are independent and require separate remediation tracks. '}
-                            {p1Both.length > 0
-                              ? `${p1Both.length} P1 critical gap${p1Both.length > 1 ? 's require' : ' requires'} immediate remediation: ${p1Both.map(g => g.component).join(', ')}.`
-                              : 'No P1 critical gaps identified across either jurisdiction.'}
+                        <div>
+                          <p className="text-10px font-bold uppercase tracking-widest mb-2" style={{ color: T.muted }}>
+                            A — Remediation Efficiency Map
                           </p>
-                          {/* Score bars */}
-                          <div className="flex gap-4 rounded-xl px-4 py-3 border"
-                            style={{ background: T.bg, borderColor: T.border }}>
+                          <div className="rounded-xl overflow-hidden border" style={{ borderColor: T.border }}>
+                            <table className="w-full text-xs">
+                              <thead>
+                                <tr style={{ background: T.bg, borderBottom: `1px solid ${T.border}` }}>
+                                  {['Priority', 'Component', 'Fixes SCOMET', 'Fixes EAR', 'Effort'].map((h, i) => (
+                                    <th key={i} className="px-3 py-2 text-left text-10px font-bold uppercase tracking-wider" style={{ color: T.muted }}>
+                                      {h}
+                                    </th>
+                                  ))}
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {['P1', 'P2', 'P3'].flatMap(p =>
+                                  remediationGaps
+                                    .filter(g => g.priority === p)
+                                    .map((gap, idx, arr) => {
+                                      const fixesScomet = gap.jurisdiction === 'SCOMET' || gap.jurisdiction === 'Both';
+                                      const fixesEar    = gap.jurisdiction === 'EAR'    || gap.jurisdiction === 'Both';
+                                      const effort = effortLabel(gap);
+                                      return (
+                                        <tr key={gap.component} style={{ borderBottom: `1px solid ${T.border}` }}>
+                                          <td className="px-3 py-2">
+                                            <PriorityChip priority={gap.priority} />
+                                          </td>
+                                          <td className="px-3 py-2 font-medium" style={{ color: T.text, maxWidth: 160 }}>
+                                            {gap.component}
+                                          </td>
+                                          <td className="px-3 py-2 text-center text-sm">
+                                            {fixesScomet ? '✅' : <span style={{ color: T.muted }}>—</span>}
+                                          </td>
+                                          <td className="px-3 py-2 text-center text-sm">
+                                            {fixesEar ? '✅' : <span style={{ color: T.muted }}>—</span>}
+                                          </td>
+                                          <td className="px-3 py-2 text-10px font-semibold" style={{ color: effort.color }}>
+                                            {effort.label}
+                                          </td>
+                                        </tr>
+                                      );
+                                    })
+                                )}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      );
+                    })()}
+
+                    {/* ── Sub-section B: FDPR / Dual-Trigger Explanation ── */}
+                    {result.scometScore < 80 && result.earScore < 80 && (
+                      <div>
+                        <p className="text-10px font-bold uppercase tracking-widest mb-2" style={{ color: T.muted }}>
+                          B — Why Both Jurisdictions Apply (FDPR)
+                        </p>
+                        <div
+                          className="rounded-xl px-4 py-3 flex items-start gap-3"
+                          style={{ background: 'rgba(79,152,163,0.05)', border: `1px solid rgba(79,152,163,0.2)` }}
+                        >
+                          <Info className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: T.teal }} />
+                          <p className="text-xs leading-relaxed" style={{ color: T.body }}>
+                            <strong style={{ color: T.text }}>EAR jurisdiction is triggered here via the Foreign Direct Product Rule (FDPR), not by product origin.</strong>{' '}
+                            Even though this is an Indian company making India-origin products, US-origin EDA tools assert EAR jurisdiction unconditionally.
+                            Remediating SCOMET gaps simultaneously closes EAR gaps in{' '}
+                            <strong style={{ color: T.teal }}>
+                              {result.gapAnalysis.filter(g => g.jurisdiction === 'Both' && g.status !== 'Present').length} of{' '}
+                              {result.gapAnalysis.filter(g => g.status !== 'Present').length} open components
+                            </strong>.
+                          </p>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* ── Sub-section C: Score Gap Tracker ── */}
+                    {(() => {
+                      const presentCount = result.gapAnalysis.filter(g => g.status === 'Present').length;
+                      const neededForPass = Math.max(0, Math.ceil(0.8 * 14) - presentCount);
+                      const worstScore = Math.min(result.scometScore, result.earScore);
+
+                      return (
+                        <div>
+                          <p className="text-10px font-bold uppercase tracking-widest mb-2" style={{ color: T.muted }}>
+                            C — Score Gap Tracker
+                          </p>
+
+                          {/* Progress bars */}
+                          <div className="rounded-xl border px-4 py-3 space-y-3 mb-3" style={{ background: T.bg, borderColor: T.border }}>
                             {[
                               { flag: '🇮🇳', label: 'SCOMET', score: result.scometScore },
-                              { flag: '🇺🇸', label: 'EAR', score: result.earScore },
+                              { flag: '🇺🇸', label: 'EAR / BIS', score: result.earScore },
                             ].map(({ flag, label, score }) => (
-                              <div key={label} className="flex-1">
-                                <p className="text-[10px] font-semibold uppercase tracking-wider mb-1" style={{ color: T.muted }}>{flag} {label}</p>
-                                <div className="flex items-center gap-2">
-                                  <div className="flex-1 h-2 rounded-full overflow-hidden" style={{ background: 'rgba(180,185,190,0.2)' }}>
-                                    <div className="h-full rounded-full" style={{ width: `${score}%`, background: scoreColor(score) }} />
-                                  </div>
-                                  <span className="text-xs font-bold" style={{ color: T.text }}>{Math.round(score)}%</span>
+                              <div key={label}>
+                                <div className="flex items-center justify-between mb-1">
+                                  <p className="text-10px font-semibold uppercase tracking-wider" style={{ color: T.muted }}>
+                                    {flag} {label}
+                                  </p>
+                                  <span className="text-xs font-bold" style={{ color: scoreColor(score) }}>
+                                    {Math.round(score)}%
+                                  </span>
+                                </div>
+                                {/* Track with 80% pass-line marker */}
+                                <div className="relative w-full h-2 rounded-full overflow-visible" style={{ background: 'rgba(180,185,190,0.2)' }}>
+                                  <div
+                                    className="h-full rounded-full transition-all duration-500"
+                                    style={{ width: `${score}%`, background: scoreColor(score) }}
+                                  />
+                                  {/* 80% pass-line */}
+                                  <div
+                                    className="absolute top-0 bottom-0 w-px"
+                                    style={{ left: '80%', background: 'rgba(79,152,163,0.55)', height: '200%', top: '-50%' }}
+                                    title="80% pass threshold"
+                                  />
                                 </div>
                               </div>
                             ))}
                           </div>
-                          <p className="text-xs italic" style={{ color: T.muted }}>
-                            {result.scometScore === result.earScore
-                              ? `Both jurisdictions at equal score (${Math.round(result.scometScore)}%) — remediate P1 gaps first, then P2.`
-                              : `Priority: remediate ${result.scometScore < result.earScore ? 'SCOMET' : 'EAR'} first (lower score at ${Math.round(worstScore)}%), then address P1 gaps across both.`}
-                          </p>
+
+                          {/* Distance to pass */}
+                          <div
+                            className="rounded-xl px-3.5 py-2.5 flex items-center gap-2.5"
+                            style={{
+                              background: neededForPass === 0 ? 'rgba(16,185,129,0.07)' : 'rgba(245,158,11,0.07)',
+                              border: `1px solid ${neededForPass === 0 ? 'rgba(16,185,129,0.25)' : 'rgba(245,158,11,0.28)'}`
+                            }}
+                          >
+                            <TrendingUp className="w-3.5 h-3.5 flex-shrink-0" style={{ color: neededForPass === 0 ? '#10b981' : '#f59e0b' }} />
+                            <p className="text-xs font-medium" style={{ color: neededForPass === 0 ? '#065f46' : '#92400e' }}>
+                              {neededForPass === 0
+                                ? `✓ Both jurisdictions are at or above the 80% compliance threshold.`
+                                : `${neededForPass} more component${neededForPass > 1 ? 's' : ''} need${neededForPass === 1 ? 's' : ''} to reach Present status to achieve 80% compliance under both frameworks.`
+                              }
+                            </p>
+                          </div>
                         </div>
                       );
                     })()}
+
                   </div>
                 </div>
               )}
 
-              {/* ── Regulatory Citations ── */}
-              {((result.chunksUsed && result.chunksUsed.length > 0) ||
-                (result.gapAnalysis && result.gapAnalysis.some(g => g.citation && g.citation !== 'N/A'))) && (
+              {/* Regulatory Basis & Evidence Index */}
+              {result.gapAnalysis && result.gapAnalysis.length > 0 && (
                 <div className="rounded-2xl border overflow-hidden" style={{ background: T.surface, borderColor: T.border }}>
-                  <RSection icon={<BookOpen className="w-3.5 h-3.5" />} title="Regulatory Citations" />
-                  <div className="p-4">
-                    {result.chunksUsed && result.chunksUsed.length > 0
-                      ? <CitationsAccordion chunks={result.chunksUsed} />
-                      : <CitationsAccordion chunks={result.gapAnalysis.map(g => g.citation).filter(c => c && c !== 'N/A').flatMap(c => parseCitations(c))} />}
+                  <RSection
+                    icon={<BookOpen className="w-3.5 h-3.5" />}
+                    title="Regulatory Basis & Evidence Index"
+                    subtitle="Standard mapping · Document evidence from uploaded ICP"
+                  />
+                  <div className="p-4 space-y-4">
+
+                    {/* ── Part A: Regulatory Basis Table ── */}
+                    <div>
+                      <p className="text-10px font-bold uppercase tracking-widest mb-2" style={{ color: T.muted }}>
+                        Regulatory Basis — Component → Standard Reference
+                      </p>
+                      <div className="rounded-xl overflow-hidden border" style={{ borderColor: T.border }}>
+                        <table className="w-full text-xs">
+                          <thead>
+                            <tr style={{ background: T.bg, borderBottom: `1px solid ${T.border}` }}>
+                              {['Component', 'BIS / DGFT Reference', 'Jurisdiction', 'Status'].map((h, i) => (
+                                <th key={i} className="px-3 py-2 text-left text-10px font-bold uppercase tracking-wider" style={{ color: T.muted }}>
+                                  {h}
+                                </th>
+                              ))}
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {ICP_COMPONENT_GROUPS.map((group, gi) => {
+                              const matchedGap = result.gapAnalysis.find(g => g.component === group.component);
+                              return (
+                                <tr key={gi} style={{ borderBottom: gi < ICP_COMPONENT_GROUPS.length - 1 ? `1px solid ${T.border}` : 'none' }}>
+                                  <td className="px-3 py-2 font-medium text-xs" style={{ color: T.text, maxWidth: 160 }}>
+                                    {group.component}
+                                  </td>
+                                  <td className="px-3 py-2 text-10px font-mono" style={{ color: T.teal }}>
+                                    {group.bisRef || '—'}
+                                  </td>
+                                  <td className="px-3 py-2 text-10px" style={{ color: T.muted }}>
+                                    {matchedGap?.jurisdiction || 'Both'}
+                                  </td>
+                                  <td className="px-3 py-2">
+                                    {matchedGap ? <StatusChip status={matchedGap.status} /> : null}
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+
+                    {/* ── Part B: Evidence Index ── */}
+                    <div>
+                      <p className="text-10px font-bold uppercase tracking-widest mb-2" style={{ color: T.muted }}>
+                        Document Evidence Index — Quoted from Uploaded ICP
+                      </p>
+                      <div className="space-y-1.5">
+                        {result.gapAnalysis.map((gap, idx) => (
+                          <div
+                            key={idx}
+                            className="rounded-xl px-3.5 py-2.5 flex items-start gap-3"
+                            style={{
+                              background: gap.status === 'Present'
+                                ? 'rgba(16,185,129,0.05)'
+                                : gap.status === 'Partial'
+                                ? 'rgba(245,158,11,0.05)'
+                                : 'rgba(239,68,68,0.05)',
+                              border: `1px solid ${
+                                gap.status === 'Present'
+                                  ? 'rgba(16,185,129,0.18)'
+                                  : gap.status === 'Partial'
+                                  ? 'rgba(245,158,11,0.18)'
+                                  : 'rgba(239,68,68,0.18)'
+                              }`
+                            }}
+                          >
+                            {/* Status icon */}
+                            <div className="flex-shrink-0 mt-0.5">
+                              {gap.status === 'Present'
+                                ? <CheckCircle2 className="w-3.5 h-3.5" style={{ color: '#10b981' }} />
+                                : gap.status === 'Partial'
+                                ? <AlertTriangle className="w-3.5 h-3.5" style={{ color: '#f59e0b' }} />
+                                : <XCircle className="w-3.5 h-3.5" style={{ color: '#ef4444' }} />
+                              }
+                            </div>
+                            {/* Content */}
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 flex-wrap mb-1">
+                                <span className="text-xs font-semibold" style={{ color: T.text }}>{gap.component}</span>
+                                <StatusChip status={gap.status} />
+                                <PriorityChip priority={gap.priority} />
+                              </div>
+                              <p className="text-10px italic leading-relaxed" style={{
+                                color: gap.status === 'Present' ? '#065f46' : gap.status === 'Partial' ? '#92400e' : '#991b1b'
+                              }}>
+                                {gap.evidence
+                                  ? `"${gap.evidence.replace(/^"+|"+$/g, '').replace(/,+$/g, '')}"`
+                                  : gap.status === 'Present'
+                                  ? 'Component identified as present in the uploaded ICP document.'
+                                  : gap.status === 'Partial'
+                                  ? 'Partial coverage identified — see gap description for details.'
+                                  : 'No evidence found in the uploaded ICP document for this component.'
+                                }
+                              </p>
+                              {gap.citation && gap.citation !== 'N/A' && (
+                                <p className="text-10px mt-1" style={{ color: T.muted }}>
+                                  <span className="font-semibold">Regulatory basis: </span>{gap.citation}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
                   </div>
                 </div>
               )}
