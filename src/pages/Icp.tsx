@@ -1065,7 +1065,7 @@ export const Icp: React.FC = () => {
               )}
 
               {/* Cross-Jurisdiction Analysis — expanded */}
-              {jurisdictions.includes('SCOMET:INDIA') && jurisdictions.includes('EAR:US') && (
+              {jurisdictions.includes('SCOMET_INDIA') && jurisdictions.includes('EAR_US') && (
                 <div className="rounded-2xl border overflow-hidden" style={{ background: T.surface, borderColor: T.border }}>
                   <RSection
                     icon={<LayoutGrid className="w-3.5 h-3.5" />}
@@ -1259,7 +1259,11 @@ export const Icp: React.FC = () => {
                           </thead>
                           <tbody>
                             {ICP_COMPONENT_GROUPS.map((group, gi) => {
-                              const matchedGap = result.gapAnalysis.find(g => g.component === group.component);
+                              const matchedGap = result.gapAnalysis.find(g =>
+                                g.component === group.component ||
+                                g.component.toLowerCase().startsWith(group.component.toLowerCase()) ||
+                                group.component.toLowerCase().startsWith(g.component.toLowerCase())
+                              );
                               return (
                                 <tr key={gi} style={{ borderBottom: gi < ICP_COMPONENT_GROUPS.length - 1 ? `1px solid ${T.border}` : 'none' }}>
                                   <td className="px-3 py-2 font-medium text-xs" style={{ color: T.text, maxWidth: 160 }}>
