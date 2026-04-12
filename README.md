@@ -35,7 +35,7 @@
 
 ## 1. Project Overview
 
-Glosilex is a production-grade, full-stack AI compliance platform that helps semiconductor and dual-use technology exporters navigate two of the world's most complex export control regimes simultaneously: **India's SCOMET (Special Chemicals, Organisms, Materials, Equipment and Technologies)** and the **US Export Administration Regulations (EAR / BIS)**. It does this through four purpose-built AI modules, each backed by a proprietary vector database of regulatory documents and powered by Google Gemini 2.5 Flash with Hypothetical Document Embedding (HyDE) retrieval.
+Glosilex is a production-grade, full-stack AI compliance platform that helps semiconductor and dual-use technology exporters navigate two of the world's most complex export control regimes simultaneously: **India's SCOMET (Special Chemicals, Organisms, Materials, Equipment and Technologies)** and the **US Export Administration Regulations (EAR / BIS)**. It does this through four purpose-built AI modules, each backed by a proprietary vector database of regulatory documents and powered by Google Gemini 2.5 Flash. Classification, Contract, and Ask modules use Hypothetical Document Embedding (HyDE) retrieval; the ICP Gap Analyzer uses direct Gemini-grounded analysis without HyDE (see Section 12 for the full reasoning).
 
 The product is designed for:
 - Exporters dealing in dual-use goods and advanced electronics
@@ -78,7 +78,10 @@ Evaluates or builds an Internal Compliance Program (ICP) against 14 standard exp
 - Outputs overall compliance score plus separate SCOMET and EAR sub-scores
 - Dual Jurisdiction Alert banner when gaps exist in both frameworks simultaneously
 - Recommended Documentation Flow (Phase 2 preview): document-by-document guidance for building a compliant ICP
-- HyDE used separately for SCOMET and EAR ICP retrieval
+- HyDE is used in Steps 2 and 3 of the ICP chain for vector retrieval (SCOMET and EAR regulatory context respectively), but **not** for the gap-analysis judgment itself — that is handled by direct Gemini reasoning over the extracted ICP structure and retrieved context (see Key Technical Design Decisions §10 for the full reasoning)
+- **Cross-Jurisdiction Analysis** — rendered when both SCOMET and EAR are in scope; contains three analytical sub-sections: (A) Remediation Efficiency Map — a priority-ordered table mapping each gap to which jurisdiction it fixes and the estimated remediation effort; (B) FDPR / Dual-Trigger Explanation — a contextual panel explaining why EAR jurisdiction is triggered via the Foreign Direct Product Rule even for India-origin products using US-origin EDA tools, with a count of how many open gaps a SCOMET fix simultaneously closes under EAR; (C) Score Gap Tracker — live dual progress bars with an 80% pass-line marker for SCOMET and EAR sub-scores, and a distance-to-pass indicator
+- **Regulatory Basis & Evidence Index** — a two-part reference section rendered after the Documentation Flow: (1) *Regulatory Basis table* — maps every one of the 14 ICP components to its BIS/DGFT standard reference (e.g., BIS EMCP §3 / EAR §774), jurisdiction, and live status chip sourced from the gap analysis; (2) *Document Evidence Index* — quoted verbatim evidence extracted directly from the uploaded ICP document for each component, with full regulatory citation and priority
+- `icpDocGroups.ts` — new file providing the static component group metadata (`ICP_COMPONENT_GROUPS`), criticality configuration (`CRITICALITY_CONFIG` — Foundational / Operational / Governance), the `matchGroupDocs()` helper for linking doc-flow steps to component groups, and the `STATIC_DOC_FLOW` array of all 19 standard compliance documents
 - Results stored in `icp_results` table
 
 ### 3. 📄 Contract Reviewer (`/contracts`)
@@ -361,7 +364,7 @@ src/
 - `src/lib/classificationService.ts` — multi-step export classification workflow
 - `src/lib/icpService.ts` — multi-step ICP gap analysis workflow
 - `src/lib/contractService.ts` — contract audit and clause-generation workflow
-- `src/lib/icpDocGroups.ts` — ICP component group metadata, criticality config, and documentation flow helpers
+- `src/lib/icpDocGroups.ts` — Static metadata for the ICP module: `ICP_COMPONENT_GROUPS` (14 entries with short `component` name, `criticality` tier, `bisRef` standard reference, keyword array for doc-flow matching, and optional `dependencyNote`); `CRITICALITY_CONFIG` (Foundational / Operational / Governance visual badge configuration); `matchGroupDocs()` helper (links `STATIC_DOC_FLOW` documents to component groups via keyword matching); `STATIC_DOC_FLOW` (the 19-document ordered compliance roadmap, each with `stepNumber`, `label`, `type`, and `jurisdictionTags`). This file drives both the Recommended Documentation Flow section and the Regulatory Basis table in the ICP results UI.
 - `src/lib/reportService.ts` — transforms module output into report-ready structures
 
 #### Pages
@@ -959,7 +962,7 @@ Users enter their Supabase Project URL and Anon Key via the Credentials Modal at
 
 **Fallback:** If the HyDE LLM call fails, the function returns the original query string — the system degrades gracefully to direct embedding.
 
-**Usage:** Applied in all 4 modules — 2 HyDE calls per module for dual-jurisdiction retrieval (SCOMET + EAR) in Classification, ICP, and Contract; 1 HyDE call in Ask.
+**Usage:** Applied in Classification (2 HyDE calls — SCOMET + EAR), Contract (2 HyDE calls — SCOMET + EAR), and Ask (1 HyDE call). The ICP module uses HyDE for regulatory chunk retrieval in Steps 2 and 3, but does not use HyDE for the gap-analysis judgment pass — see Key Technical Design Decisions §10 for the full reasoning.
 
 ### 2. Hybrid Search with Reciprocal Rank Fusion
 
@@ -1019,6 +1022,28 @@ The app uses a branded Glosilex visual system defined primarily in `src/index.cs
 - Modern dashboard-like surfaces, cards, badges, and jurisdiction-aware UI accents
 - Module UIs aligned toward a consistent branded compliance platform
 
+### 10. Why HyDE Is Not Applied to ICP Gap Analysis Judgment
+
+**Problem stated incorrectly in earlier versions:** The ICP module was described as using "HyDE for SCOMET and EAR ICP retrieval" as if HyDE drove the gap analysis itself. This needed clarification.
+
+**What HyDE actually does in ICP:** HyDE *is* used in Steps 2 and 3 for the retrieval pass — generating a hypothetical regulatory excerpt before embedding and calling `hybrid_search`. This is standard RAG retrieval augmentation, identical to other modules.
+
+**Why HyDE is not applicable to the gap-analysis judgment pass (Steps 4–6):**
+
+The gap analysis is fundamentally different in nature from the retrieval problem HyDE solves:
+
+1. **HyDE solves a semantic space mismatch problem** — user queries live in conversational language; regulatory text lives in formal clause language. HyDE bridges this gap by asking Gemini to write a fake regulatory excerpt, putting the search query into the same vector space as the real chunks. This is the retrieval problem.
+
+2. **Gap analysis is a *judgment* problem, not a retrieval problem.** By the time we reach Step 4, we already have: the extracted ICP structure (Step 1), the SCOMET component mapping with status/citations (Step 2), and the EAR component mapping with status/citations (Step 3). There is no additional retrieval to do. The question being answered is: "Given what the ICP says and what the regulation requires, what is missing?" — this is a deterministic comparison and classification task, not a document search.
+
+3. **Generating a hypothetical gap-analysis document to embed and search for would be circular.** If you HyDE-generate "what a good gap analysis looks like" and search the `regulatory_chunks` corpus with it, you retrieve more regulatory text — but you *already have* the regulatory context from Steps 2 and 3. The additional retrieval would return the same chunks (or overlapping chunks) without adding new information to the judgment.
+
+4. **Step 4 is a `buildGapListFromMappings()` deterministic function**, not an LLM call with context retrieval. The worst-case status merge, jurisdiction assignment, and priority classification are all rule-based logic, not probabilistic generation. Applying HyDE here would mean using an LLM to generate something for a function that doesn't call an LLM at all.
+
+5. **SOP generation (Step 5) and documentation flow (Step 6) are instruction-following tasks** on already-structured data. The inputs are JSON arrays of gap objects. Generating a hypothetical SOP document to embed and retrieve against would add latency and API cost without improving the output — Gemini already has the gap context directly.
+
+**Bottom line:** HyDE is a retrieval-time technique. The ICP module uses it exactly where retrieval happens (Steps 2 and 3). It is correctly absent from Steps 4–6 because those steps do not perform retrieval.
+
 ---
 
 ## 12. Module Deep-Dive
@@ -1046,11 +1071,14 @@ The app uses a branded Glosilex visual system defined primarily in `src/index.cs
 **Key Outputs:** Gap analysis array with status (Present/Partial/Missing), priority (P1/P2/P3), gap description, SOP language, citations; overall score; SCOMET and EAR sub-scores; documentation flow (`doc_flow`)
 
 **Chain steps:**
-1. **Step 1:** Extract ICP structure from uploaded document (or note "building from scratch")
-2. **Step 2:** HyDE → `hybrid_search(['SCOMET_INDIA'])` → SCOMET gap analysis
-3. **Step 3:** HyDE → `hybrid_search(['EAR_US'])` → EAR gap analysis
-4. **Step 4:** Identify gaps, assign P1/P2/P3 priorities, generate SOP language per gap
-5. **Step 5:** Compute scores, generate documentation flow recommendations
+1. **Step 1:** Extract ICP structure from the uploaded document (or note "building from scratch") — pure LLM extraction, no retrieval
+2. **Step 2:** HyDE → `embedText()` → `hybrid_search(['SCOMET_INDIA'], match_count: 7)` → Gemini maps ICP structure against SCOMET requirements; returns `components[]` JSON with status, gapDescription, citation, evidence per component
+3. **Step 3:** HyDE → `embedText()` → `hybrid_search(['EAR_US'], match_count: 7)` → Gemini maps ICP structure against EAR requirements; same output shape as Step 2
+4. **Step 4:** `buildGapListFromMappings()` — deterministic merge of Step 2 and Step 3 outputs; worst-case status selected per component; P1/P2/P3 priority assigned based on component criticality; jurisdiction (`SCOMET` / `EAR` / `Both`) derived from which frameworks have the gap; safety-net ensures all 14 canonical component names are always present
+5. **Step 5:** SOP text generation — Gemini adds ready-to-use SOP language to each gap item; if Step 5 returns fewer than 14 items, Step 4 output is preserved without SOP text
+6. **Step 6:** Documentation flow (`STATIC_DOC_FLOW`) — builds the 19-document ordered compliance roadmap; `ICP_COMPONENT_GROUPS` from `icpDocGroups.ts` links each document back to its ICP component group
+
+**Inter-step delay:** A deliberate `pause(1500ms)` is inserted between every step. This was added because Steps 4 → 5 → 6 are three consecutive Gemini calls with only microsecond-level JSON parsing in between — firing them without delay stacks on an already-loaded API and triggers `503 UNAVAILABLE` errors. The 1.5s pause gives Gemini's server-side rate management time to breathe between calls.
 
 **Supabase:** Reads `regulatory_chunks` via `hybrid_search`; writes `icp_results`
 
@@ -1194,7 +1222,7 @@ This is a private production-oriented application. Recommended internal developm
 
 ## 17. Final Bug & Issue Verification Status
 
-All bugs and issues identified during development have been resolved as of April 2026.
+All bugs and issues identified during development and testing have been resolved as of April 2026.
 
 | # | Issue | Status |
 |---|---|---|
@@ -1203,6 +1231,8 @@ All bugs and issues identified during development have been resolved as of April
 | Bug 3 | `contract_results` missing `confidence_score`, `confidence_note`, `summary` | ✅ Fixed |
 | Bug 4 | `hasCredentials()` reading wrong env variable name | ✅ Fixed |
 | Bug 5 | `GEMINI_API_KEY` mismatch between `lib/gemini.ts` and `.env.example` | ✅ Fixed |
+| Bug 7 | Regulatory Basis table Status column blank for Management Commitment, ECO Appointment, Product Classification, License Determination | ✅ Fixed — `ICP_COMPONENT_GROUPS` short names (e.g., "Management Commitment") didn't match Gemini-returned full names (e.g., "Management Commitment & Policy Statement"); fixed by replacing `===` with a bidirectional `startsWith` match |
+| Bug 8 | Cross-Jurisdiction Analysis block never rendered despite both SCOMET and EAR being in scope | ✅ Fixed — jurisdiction condition checked `'SCOMET:INDIA'` and `'EAR:US'` (colon-separated) but the state array stores `'SCOMET_INDIA'` and `'EAR_US'` (underscore-separated); corrected to underscore keys |
 | Issue 1 | HyDE not implemented (pseudo-HyDE only) | ✅ Implemented in all 4 modules |
 | Issue 2 | `getGemini` singleton not enforced | ✅ Fixed |
 | Issue 3 | `.env.example` incomplete for Vercel deployment | ✅ Fixed |
