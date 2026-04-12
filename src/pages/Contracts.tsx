@@ -4,7 +4,7 @@ import {
   FileSignature, ShieldAlert, CheckCircle, MessageSquare, Download,
   ChevronLeft, ChevronRight, ArrowRight, ChevronDown, ChevronUp, Info,
   Globe, Shield, Layers, BarChart3, Target, BookOpen, Zap, TrendingUp,
-  LayoutGrid, Search
+  LayoutGrid, Search, Sparkles
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -547,20 +547,55 @@ export const Contracts: React.FC = () => {
             {!result && !isLoading && !error && (
               <div className="rounded-2xl border p-10 text-center max-w-2xl mx-auto"
                 style={{ background: T.surface, borderColor: T.border }}>
-                <div className="relative mx-auto mb-6" style={{ width: 72, height: 72 }}>
-                  <div className="absolute inset-0 rounded-2xl opacity-20"
+                {/* Icon with layered glow ring */}
+                <div className="relative mx-auto mb-5" style={{ width: 80, height: 80 }}>
+                  <div className="absolute inset-0 rounded-2xl opacity-15"
                     style={{ background: 'repeating-linear-gradient(0deg,transparent,transparent 8px,rgba(79,152,163,0.3) 8px,rgba(79,152,163,0.3) 9px),repeating-linear-gradient(90deg,transparent,transparent 8px,rgba(79,152,163,0.3) 8px,rgba(79,152,163,0.3) 9px)' }} />
+                  <div className="absolute -inset-2 rounded-3xl opacity-20"
+                    style={{ background: 'radial-gradient(circle,rgba(79,152,163,0.35) 0%,transparent 70%)' }} />
                   <div className="absolute inset-0 rounded-2xl flex items-center justify-center"
-                    style={{ background: 'linear-gradient(135deg,rgba(79,152,163,0.12),rgba(1,105,111,0.06))', border: '1.5px solid rgba(79,152,163,0.25)' }}>
-                    <FileSignature className="w-8 h-8" style={{ color: T.teal }} />
+                    style={{ background: 'linear-gradient(135deg,rgba(79,152,163,0.14),rgba(1,105,111,0.07))', border: '1.5px solid rgba(79,152,163,0.30)' }}>
+                    <FileSignature className="w-9 h-9" style={{ color: T.teal }} />
                   </div>
                 </div>
-                <h3 className="text-lg font-bold mb-2" style={{ color: T.text, fontFamily: 'var(--font-heading)' }}>No Contract Uploaded</h3>
-                <p className="text-sm leading-relaxed max-w-sm mx-auto mb-5" style={{ color: T.muted }}>
-                  Upload a contract and configure your review scope in the left panel, then click <strong style={{ color: T.teal }}>Analyse Contract</strong>.
+
+                {/* Module identity */}
+                <h3 className="text-lg font-bold mb-1" style={{ color: T.text, fontFamily: 'var(--font-heading)' }}>Contract Intelligence</h3>                
+                <p className="text-sm leading-relaxed max-w-sm mx-auto mb-1" style={{ color: T.muted }}>
+                Upload your contract and configure your review scope in the left panel, then click{' '}
+                <strong style={{ color: T.teal }}>Analyse Contract</strong> to ensure high-precision regulatory alignment.
                 </p>
+
+                {/* Grounding note */}
+                <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full mt-3 mb-5"
+                  style={{ background: 'rgba(79,152,163,0.07)', border: '1px solid rgba(79,152,163,0.2)' }}>
+                  <Sparkles className="w-3 h-3 flex-shrink-0" style={{ color: T.teal }} />
+                  <span className="text-[10px] font-medium" style={{ color: T.teal }}>                    
+                    AI-grounded clause-by-clause audit of commercial contracts against SCOMET FTP 2023 · EAR 15 CFR 734–762
+                  </span>
+                </div>
+
+                {/* Value tags */}
+                <div className="flex flex-wrap justify-center gap-1.5 mb-4">
+                  {[
+                    { icon: <Shield className="w-3 h-3" />, label: '6 Compliance Categories' },
+                    { icon: <Globe className="w-3 h-3" />,  label: 'Dual Jurisdiction' },
+                    { icon: <Zap className="w-3 h-3" />,    label: 'HyDE Retrieval' },
+                    { icon: <BookOpen className="w-3 h-3" />, label: 'Regulatory Grounding' },
+                    { icon: <Target className="w-3 h-3" />, label: 'AI Confidence Score' },
+                    { icon: <FileText className="w-3 h-3" />, label: 'Clause Rewrite' },
+                  ].map(({ icon, label }) => (
+                    <span key={label}
+                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-semibold border"
+                      style={{ background: 'rgba(79,152,163,0.07)', borderColor: 'rgba(79,152,163,0.22)', color: T.teal }}>
+                      {icon}{label}
+                    </span>
+                  ))}
+                </div>                
+                
+                {/* What the analyzer checks — tag style */}
                 <div className="rounded-xl p-4 text-left" style={{ background: T.bg, border: `1px solid ${T.border}` }}>
-                  <p className="text-[10px] font-bold uppercase tracking-widest mb-2.5" style={{ color: T.teal }}>What the analyzer checks</p>
+                  <p className="text-[10px] font-bold uppercase tracking-widest mb-2.5" style={{ color: T.teal }}>What the analyzer checks</p>                  
                   <div className="grid grid-cols-2 gap-2">
                     {['End-use & end-user restrictions','Re-export transfer controls','Recordkeeping requirements','Audit rights & certifications','Licensing contingencies','Regulatory change procedures'].map(item => (
                       <div key={item} className="flex items-start gap-2 text-xs" style={{ color: T.body }}>

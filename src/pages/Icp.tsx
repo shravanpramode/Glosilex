@@ -357,15 +357,26 @@ export const Icp: React.FC = () => {
 
           {/* ── Panel header ── */}
           <div className="flex-shrink-0 px-4 pt-4 pb-3 border-b" style={{ borderColor: T.border }}>
-            <div className="flex items-center gap-2.5">
-              <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0"
-                style={{ background: 'rgba(79,152,163,0.12)', border: '1px solid rgba(79,152,163,0.25)' }}>
-                <Building2 className="w-3.5 h-3.5" style={{ color: T.teal }} />
+            <div className="flex items-center gap-3">
+              {/* Responsive layered icon */}
+              <div className="relative flex-shrink-0" style={{ width: 34, height: 34 }}>
+                <div className="absolute inset-0 rounded-xl opacity-40"
+                  style={{ background: 'rgba(79,152,163,0.12)', border: '1px solid rgba(79,152,163,0.2)' }} />
+                <div className="absolute inset-0.5 rounded-[10px] flex items-center justify-center"
+                  style={{ background: 'linear-gradient(135deg,rgba(79,152,163,0.18),rgba(1,105,111,0.10))', border: '1px solid rgba(79,152,163,0.28)', boxShadow: '0 2px 8px rgba(79,152,163,0.18)' }}>
+                  <Shield className="w-4 h-4" style={{ color: T.teal }} />
+                </div>
               </div>
-              <div>
-                <h1 className="text-sm font-bold leading-tight" style={{ color: T.text, fontFamily: 'var(--font-heading)' }}>
-                  ICP Gap Analyzer
-                </h1>
+              <div className="min-w-0">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <h1 className="text-sm font-bold leading-tight" style={{ color: T.text, fontFamily: 'var(--font-heading)' }}>
+                    ICP Gap Analyzer
+                  </h1>
+                  <span className="px-1.5 py-px rounded text-[8px] font-bold uppercase tracking-wide"
+                    style={{ background: 'rgba(79,152,163,0.12)', color: T.teal, border: '1px solid rgba(79,152,163,0.25)' }}>
+                    v2
+                  </span>
+                </div>
                 <p className="text-[10px] leading-tight mt-0.5" style={{ color: T.muted }}>
                   SCOMET · EAR · Compliance Assessment
                 </p>
@@ -595,28 +606,62 @@ export const Icp: React.FC = () => {
           {!result && !isLoading && !error && (
             <div className="rounded-2xl border p-10 text-center max-w-2xl mx-auto"
               style={{ background: T.surface, borderColor: T.border }}>
-              {/* Decorative grid lines */}
-              <div className="relative mx-auto mb-6" style={{ width: 72, height: 72 }}>
-                <div className="absolute inset-0 rounded-2xl opacity-20"
-                  style={{ background: 'repeating-linear-gradient(0deg,transparent,transparent 8px,rgba(79,152,163,0.3) 8px,rgba(79,152,163,0.3) 9px),repeating-linear-gradient(90deg,transparent,transparent 8px,rgba(79,152,163,0.3) 8px,rgba(79,152,163,0.3) 9px)' }} />
-                <div className="absolute inset-0 rounded-2xl flex items-center justify-center"
-                  style={{ background: 'linear-gradient(135deg,rgba(79,152,163,0.12),rgba(1,105,111,0.06))', border: '1.5px solid rgba(79,152,163,0.25)' }}>
-                  <FileCheck className="w-8 h-8" style={{ color: T.teal }} />
+
+              {/* Animated icon */}
+              <div className="relative mx-auto mb-6" style={{ width: 88, height: 88 }}>
+                {/* Pulsing outer ring */}
+                <div className="absolute inset-0 rounded-2xl animate-pulse"
+                  style={{ background: 'rgba(79,152,163,0.07)', border: '1.5px solid rgba(79,152,163,0.18)' }} />
+                {/* Grid overlay */}
+                <div className="absolute inset-0 rounded-2xl opacity-25"
+                  style={{ background: 'repeating-linear-gradient(0deg,transparent,transparent 10px,rgba(79,152,163,0.35) 10px,rgba(79,152,163,0.35) 11px),repeating-linear-gradient(90deg,transparent,transparent 10px,rgba(79,152,163,0.35) 10px,rgba(79,152,163,0.35) 11px)' }} />
+                {/* Main icon container */}
+                <div className="absolute inset-2 rounded-xl flex items-center justify-center"
+                  style={{ background: 'linear-gradient(135deg,rgba(79,152,163,0.16),rgba(1,105,111,0.08))', border: '1.5px solid rgba(79,152,163,0.30)', boxShadow: '0 4px 16px rgba(79,152,163,0.15)' }}>
+                  <FileCheck className="w-9 h-9" style={{ color: T.teal }} />
                 </div>
+                {/* Corner accent dots */}
+                <div className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full" style={{ background: T.teal, opacity: 0.6 }} />
+                <div className="absolute bottom-1 left-1 w-1 h-1 rounded-full" style={{ background: T.teal, opacity: 0.4 }} />
               </div>
+
               <h3 className="text-lg font-bold mb-2" style={{ color: T.text, fontFamily: 'var(--font-heading)' }}>
-                Ready for Assessment
+                ICP Gap Analyzer
               </h3>
-              <p className="text-sm leading-relaxed max-w-sm mx-auto" style={{ color: T.muted }}>
-                Configure your company details and ICP scope in the left panel, then click <strong style={{ color: T.teal }}>Run ICP Assessment</strong>.
+              <p className="text-sm leading-relaxed max-w-sm mx-auto mb-1" style={{ color: T.muted }}>
+                Upload your ICP document and configure scope in the left panel, then click{' '}
+                <strong style={{ color: T.teal }}>Run ICP Assessment</strong> to get a full gap report across SCOMET and EAR frameworks.
               </p>
-              {/* Feature chips */}
-              <div className="flex flex-wrap justify-center gap-2 mt-5">
-                {['14 ICP Components','SCOMET & EAR Mapping','SOP Generation','Doc Flow'].map(chip => (
-                  <span key={chip} className="flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-semibold border"
+
+              {/* Grounding note */}
+              <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full mt-3 mb-5"
+                style={{ background: 'rgba(79,152,163,0.07)', border: '1px solid rgba(79,152,163,0.2)' }}>
+                <Sparkles className="w-3 h-3 flex-shrink-0" style={{ color: T.teal }} />
+                <span className="text-[10px] font-medium" style={{ color: T.teal }}>
+                  AI-grounded against SCOMET APPENDIX-3 · EAR Part 732–774 · BIS ICP Guidelines
+                </span>
+              </div>
+
+              {/* Feature chips — updated with new tags */}
+              <div className="flex flex-wrap justify-center gap-2">
+                {[
+                  { label: '14 ICP Components', isNew: false },
+                  { label: 'SCOMET & EAR Mapping', isNew: false },
+                  { label: 'SOP Generation', isNew: false },
+                  { label: 'Doc Flow', isNew: false },
+                  { label: 'FDPR Analysis', isNew: true },
+                  { label: 'Score Tracker', isNew: true },
+                ].map(({ label, isNew }) => (
+                  <span key={label} className="flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-semibold border"
                     style={{ background: T.bg, borderColor: T.border, color: T.muted }}>
-                    <Sparkles className="w-2.5 h-2.5" style={{ color: T.teal }} />
-                    {chip}
+                    <Sparkles className="w-2.5 h-2.5 flex-shrink-0" style={{ color: T.teal }} />
+                    {label}
+                    {isNew && (
+                      <span className="ml-1 px-1.5 py-px rounded-full text-[8px] font-bold uppercase tracking-wide"
+                        style={{ background: 'rgba(79,152,163,0.15)', color: T.teal, border: '1px solid rgba(79,152,163,0.3)' }}>
+                        NEW
+                      </span>
+                    )}
                   </span>
                 ))}
               </div>
