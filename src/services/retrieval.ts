@@ -35,7 +35,7 @@ export async function retrieveChunks(queryText: string, jurisdictions: string[],
   // produces an uncited determination a compliance officer might act on.
   //
   // RLS denials do not surface as errors here — Postgres returns an empty set,
-  // so  stays null and the failure is completely silent. That is how the
+  // so the error object stays null and the failure is completely silent. That is how the
   // corpus stayed invisible to production for three months without a single
   // alarm. Retrieving nothing is now a hard failure.
   const chunks = data || [];
