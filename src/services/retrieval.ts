@@ -30,7 +30,24 @@ export async function retrieveChunks(queryText: string, jurisdictions: string[],
     throw new Error('Retrieval failed');
   }
 
-  return data || [];
+  // A grounded answer with zero grounding is worse than no answer at all: the
+  // model falls back on parametric knowledge, sounds just as confident, and
+  // produces an uncited determination a compliance officer might act on.
+  //
+  // RLS denials do not surface as errors here — Postgres returns an empty set,
+  // so  stays null and the failure is completely silent. That is how the
+  // corpus stayed invisible to production for three months without a single
+  // alarm. Retrieving nothing is now a hard failure.
+  const chunks = data || [];
+  if (chunks.length === 0) {
+    throw new Error(
+      'Retrieved 0 regulatory chunks for jurisdictions [' + jurisdictions.join(', ') + ']. ' +
+      'Refusing to answer without grounding. Check that the corpus is populated and ' +
+      'that the current role can read regulatory_chunks.'
+    );
+  }
+
+  return chunks;
 }
 
 export function formatRetrievedContext(chunks: any[]): string {
