@@ -1,0 +1,849 @@
+{
+  "name": "Glosilex — Regulatory Corpus Sentinel",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 6,
+              "triggerAtMinute": 0
+            }
+          ]
+        }
+      },
+      "id": "n01",
+      "name": "Every Morning 06:00",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -620,
+        200
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "n02",
+      "name": "Run Now (Demo)",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -620,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://YOUR-PROJECT.supabase.co/rest/v1/corpus_registry?is_active=eq.true&select=*",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "options": {}
+      },
+      "id": "n03",
+      "name": "Load Watchlist",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -380,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Supabase REST returns a JSON array. Depending on n8n version that arrives\n// either as one item holding the array, or already split. Handle both.\nconst out = [];\nfor (const item of $input.all()) {\n  const rows = Array.isArray(item.json) ? item.json : [item.json];\n  for (const r of rows) {\n    if (r && r.document_name) out.push({ json: r });\n  }\n}\nif (out.length === 0) {\n  throw new Error('Watchlist is empty. Did you run agent/schema.sql?');\n}\nreturn out;"
+      },
+      "id": "n04",
+      "name": "Fan Out Watchlist",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -160,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "url": "=https://www.ecfr.gov/api/versioner/v1/versions/title-{{ $json.cfr_title }}.json?part={{ $json.cfr_part }}",
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
+      },
+      "id": "n05",
+      "name": "Check eCFR Versions",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        60,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// ---------------------------------------------------------------------------\n// The judgment step. This is what separates an agent from a cron job.\n//\n// eCFR marks every section version as substantive: true | false. A typo fix,\n// a cross-reference renumbering and a nomenclature change are all recorded as\n// amendments, but none of them change what is legally controlled.\n//\n// Re-embedding 4,394 chunks because BIS corrected a comma costs money, burns\n// API quota, and — worse — churns the vector store underneath answers that\n// were already correct. So we split three ways:\n//\n//   no_change          nothing newer than what we hold\n//   editorial_skipped  newer, but nothing substantive -> record and move on\n//   ingest             substantive change -> re-ingest and assess blast radius\n// ---------------------------------------------------------------------------\nconst out = [];\nconst responses = $input.all();\nconst registry  = $('Fan Out Watchlist').all();\n\nfor (let i = 0; i < responses.length; i++) {\n  const reg = registry[i].json;\n  const versions = responses[i].json.content_versions || [];\n\n  const allDates = versions.map(v => v.amendment_date).filter(Boolean).sort();\n  const latest   = allDates.length ? allDates[allDates.length - 1] : null;\n  const held     = reg.last_ingested_amendment || null;\n\n  const isNewer = !!latest && (!held || latest > held);\n\n  // Everything amended after the copy we hold.\n  const moved = versions.filter(v =>\n    v.amendment_date && (!held || v.amendment_date > held) && !v.removed\n  );\n  const substantive = moved.filter(v => v.substantive);\n\n  // Clause ids we will use to compute blast radius against past answers.\n  const changedClauses = [...new Set(substantive.map(v => v.identifier).filter(Boolean))];\n\n  let decision = 'no_change';\n  if (isNewer && substantive.length > 0) decision = 'ingest';\n  else if (isNewer) decision = 'editorial_skipped';\n\n  out.push({ json: {\n    document_name:  reg.document_name,\n    jurisdiction:   reg.jurisdiction,\n    cfr_title:      reg.cfr_title,\n    cfr_part:       reg.cfr_part,\n    source_url:     reg.source_url,\n    chunks_before:  reg.chunk_count || 0,\n    expected_min:   reg.expected_chunk_min,\n    expected_max:   reg.expected_chunk_max,\n\n    held_amendment:   held,\n    latest_amendment: latest,\n    decision,\n\n    sections_moved:      moved.length,\n    sections_substantive: substantive.length,\n    changed_clauses:      changedClauses,\n    changed_section_names: substantive.slice(0, 40).map(v => v.name),\n  }});\n}\nreturn out;"
+      },
+      "id": "n06",
+      "name": "Decide: Change Significant?",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        280,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ $json.decision }}",
+              "rightValue": "ingest",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "n07",
+      "name": "Substantive Change?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        500,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "url": "=https://www.ecfr.gov/api/versioner/v1/full/{{ $json.latest_amendment }}/title-{{ $json.cfr_title }}.xml?part={{ $json.cfr_part }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "text",
+              "outputPropertyName": "data"
+            }
+          }
+        }
+      },
+      "id": "n08",
+      "name": "Fetch Current Regulation",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        740,
+        180
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// ---------------------------------------------------------------------------\n// Parse the eCFR XML and chunk it.\n//\n// The chunking here deliberately mirrors ingest.js exactly — same cleaning,\n// same clause-boundary split, same 512-char ceiling, same 100-char overlap.\n// If the agent chunked differently from the original ingest, the vector space\n// would drift and retrieval quality would quietly degrade on re-ingested\n// documents only. Consistency between ingest paths is a correctness property,\n// not a style preference.\n//\n// Emits one item per batch of 100 chunks, because Gemini's\n// batchEmbedContents accepts 100 requests per call. That takes Part 774 from\n// ~73 minutes at 1 req/sec down to well under a minute.\n// ---------------------------------------------------------------------------\nconst BATCH_SIZE = 100;\nconst MAX_LEN    = 512;\nconst OVERLAP    = 100;\n\nfunction xmlToText(xml) {\n  return xml\n    .replace(/<\\?xml[^>]*\\?>/g, ' ')\n    .replace(/<!--[\\s\\S]*?-->/g, ' ')\n    .replace(/<[^>]+>/g, ' ')          // drop tags, keep the text between them\n    .replace(/&#x([0-9A-Fa-f]+);/g, (_, h) => String.fromCodePoint(parseInt(h, 16)))\n    .replace(/&#(\\d+);/g,           (_, d) => String.fromCodePoint(parseInt(d, 10)))\n    .replace(/&quot;/g, '\"').replace(/&amp;/g, '&')\n    .replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&nbsp;/g, ' ');\n}\n\nfunction cleanText(text) {\n  return text\n    .replace(/-+Page \\(\\d+\\) Break-+/gi, '')\n    .replace(/-{3,}/g, '')\n    .replace(/_{5,}/g, '')\n    .replace(/\\n[ \\t]*\\n([ \\t]*\\n)+/g, '\\n\\n')\n    .trim();\n}\n\nfunction chunkText(text, jurisdiction) {\n  text = cleanText(text).replace(/\\s+/g, ' ');\n\n  const scometRegex = /(\\d[A-Z]\\d{3}[a-z]?\\.)/;\n  const earRegex    = /([0-9][A-Z][0-9]{3}\\.[a-z]\\.[0-9]+)/;\n  const regex = jurisdiction === 'SCOMET_INDIA' ? scometRegex\n              : jurisdiction === 'EAR_US'       ? earRegex\n              : new RegExp('(' + scometRegex.source + '|' + earRegex.source + ')');\n\n  const parts = text.split(new RegExp('(?=' + regex.source + ')', 'g'));\n\n  const chunks = [];\n  let current = '';\n  for (const raw of parts) {\n    const part = raw.trim();\n    if (!part) continue;\n    if (current.length < 100) current += (current ? ' ' : '') + part;\n    else { chunks.push(current); current = part; }\n  }\n  if (current) {\n    if (current.length < 100 && chunks.length > 0) chunks[chunks.length - 1] += ' ' + current;\n    else chunks.push(current);\n  }\n\n  const final = [];\n  for (const chunk of chunks) {\n    if (chunk.length <= MAX_LEN) { final.push(chunk); continue; }\n    let start = 0;\n    while (start < chunk.length) {\n      let end = Math.min(start + MAX_LEN, chunk.length);\n      if (end < chunk.length) {\n        const lastSpace = chunk.lastIndexOf(' ', end);\n        if (lastSpace > start + OVERLAP) end = lastSpace;\n      }\n      final.push(chunk.substring(start, end).trim());\n      if (end === chunk.length) break;\n      start = Math.max(0, end - OVERLAP);\n    }\n  }\n  return final.filter(c => c.length > 0);\n}\n\nconst out = [];\nconst docs = $('Decide: Change Significant?').all().filter(d => d.json.decision === 'ingest');\n\nfor (let i = 0; i < $input.all().length; i++) {\n  const meta = docs[i].json;\n  const xml  = typeof $input.all()[i].json.data === 'string'\n    ? $input.all()[i].json.data\n    : String($input.all()[i].json.data ?? '');\n\n  const chunks = chunkText(xmlToText(xml), meta.jurisdiction);\n\n  // Derive clause id / category the same way ingest.js does.\n  let currentSection = 'General';\n  const rows = chunks.map(chunk => {\n    const scometMatch = chunk.match(/^(\\d[A-Z]\\d{3}[a-z]?\\.)/);\n    const earMatch    = chunk.match(/^([0-9][A-Z][0-9]{3}\\.[a-z]\\.[0-9]+)/);\n    const clause_id   = scometMatch ? scometMatch[1] : (earMatch ? earMatch[1] : null);\n    const category    = clause_id ? 'Category ' + clause_id.charAt(0) : 'Unknown';\n    const header      = chunk.match(/^[A-Z\\s]{10,}/);\n    if (header) currentSection = header[0].trim();\n    return {\n      document_name: meta.document_name,\n      jurisdiction:  meta.jurisdiction,\n      category,\n      section:       currentSection,\n      clause_id,\n      content:       chunk,\n      metadata: {\n        date_updated:    meta.latest_amendment,\n        amendment_date:  meta.latest_amendment,   // the atomic-swap marker\n        source_url:      meta.source_url,\n        ingested_by:     'corpus-sentinel',\n      },\n    };\n  });\n\n  const total = rows.length;\n  const withinBand = total >= meta.expected_min && total <= meta.expected_max;\n\n  for (let b = 0; b < rows.length; b += BATCH_SIZE) {\n    out.push({ json: {\n      ...meta,\n      batch_index: Math.floor(b / BATCH_SIZE),\n      batch_total: Math.ceil(rows.length / BATCH_SIZE),\n      chunks_produced: total,\n      within_band: withinBand,\n      rows: rows.slice(b, b + BATCH_SIZE),\n    }});\n  }\n}\n\nif (out.length === 0) throw new Error('Parsed 0 chunks — refusing to touch the corpus.');\nreturn out;"
+      },
+      "id": "n09",
+      "name": "Parse and Chunk",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        960,
+        180
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Shape each batch into a Gemini batchEmbedContents payload.\n// outputDimensionality MUST stay 768 — it has to match both the existing\n// corpus and the vector(768) column, or every future similarity score is\n// meaningless.\nreturn $input.all().map(item => ({\n  json: {\n    ...item.json,\n    _payload: {\n      requests: item.json.rows.map(r => ({\n        model: 'models/gemini-embedding-001',\n        content: { parts: [{ text: r.content }] },\n        outputDimensionality: 768,\n      })),\n    },\n  },\n}));"
+      },
+      "id": "n10",
+      "name": "Build Embedding Request",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1180,
+        180
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:batchEmbedContents",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googlePalmApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json._payload) }}",
+        "options": {
+          "batching": {
+            "batch": {
+              "batchSize": 1,
+              "batchInterval": 1200
+            }
+          }
+        }
+      },
+      "id": "n11",
+      "name": "Embed Batch (100 at a time)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1400,
+        180
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Zip embeddings back onto their chunks, then hand Supabase a ready payload.\nconst out = [];\nconst responses = $input.all();\nconst batches   = $('Build Embedding Request').all();\n\nfor (let i = 0; i < responses.length; i++) {\n  const batch = batches[i].json;\n  const embeddings = responses[i].json.embeddings || [];\n\n  if (embeddings.length !== batch.rows.length) {\n    throw new Error(\n      'Embedding count mismatch on batch ' + batch.batch_index +\n      ': expected ' + batch.rows.length + ', got ' + embeddings.length\n    );\n  }\n\n  const rows = batch.rows.map((r, idx) => ({ ...r, embedding: embeddings[idx].values }));\n  out.push({ json: { ...batch, rows: undefined, payload: rows } });\n}\nreturn out;"
+      },
+      "id": "n12",
+      "name": "Assemble Rows",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1620,
+        180
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://YOUR-PROJECT.supabase.co/rest/v1/regulatory_chunks",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Prefer",
+              "value": "return=minimal"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.payload) }}",
+        "options": {}
+      },
+      "id": "n13",
+      "name": "Insert New Chunks",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1840,
+        180
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Run Once for All Items. Collapse the per-batch fan-out back to one item per\n// document so the verification and swap steps run exactly once.\nconst byDoc = {};\nfor (const item of $('Assemble Rows').all()) {\n  const j = item.json;\n  if (!byDoc[j.document_name]) {\n    byDoc[j.document_name] = { ...j, payload: undefined, batches_written: 0, chunks_written: 0 };\n  }\n  byDoc[j.document_name].batches_written += 1;\n  byDoc[j.document_name].chunks_written  += (j.payload ? j.payload.length : 0);\n}\nreturn Object.values(byDoc).map(json => ({ json }));"
+      },
+      "id": "n14",
+      "name": "Aggregate By Document",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2060,
+        180
+      ]
+    },
+    {
+      "parameters": {
+        "url": "=https://YOUR-PROJECT.supabase.co/rest/v1/regulatory_chunks?select=count&document_name=eq.{{ $json.document_name }}&metadata->>amendment_date=eq.{{ $json.latest_amendment }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Prefer",
+              "value": "count=exact"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "n15",
+      "name": "Count What We Wrote",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2280,
+        180
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// ---------------------------------------------------------------------------\n// The safety gate.\n//\n// New rows are already in the table, tagged with the new amendment_date. The\n// old rows are still there too — the corpus was never empty for a moment.\n// Only if the new set is the size we expected do we delete the old set.\n//\n// If the parse silently regressed (eCFR changes their XML shape, a regex stops\n// matching), chunks_written lands outside the expected band, we halt, and the\n// previous good corpus is still serving traffic.\n// ---------------------------------------------------------------------------\nconst out = [];\nfor (let i = 0; i < $input.all().length; i++) {\n  const counted = $input.all()[i].json;\n  const doc = $('Aggregate By Document').all()[i].json;\n\n  // Supabase returns the exact count in the content-range header; the count\n  // query below returns [{ count: n }].\n  const verified = Array.isArray(counted) ? (counted[0]?.count ?? 0)\n                 : (counted.count ?? doc.chunks_written);\n\n  const within = doc.chunks_written >= doc.expected_min &&\n                 doc.chunks_written <= doc.expected_max;\n  const matches = Number(verified) === Number(doc.chunks_written);\n\n  out.push({ json: {\n    ...doc,\n    chunks_verified: Number(verified),\n    validation_passed: within && matches,\n    validation_note: within\n      ? (matches ? 'Chunk count within expected band and matches rows written.'\n                 : 'Row count in database does not match rows written — possible partial insert.')\n      : 'Chunk count ' + doc.chunks_written + ' outside expected band ' +\n        doc.expected_min + '-' + doc.expected_max + '. Halting before delete.',\n  }});\n}\nreturn out;"
+      },
+      "id": "n16",
+      "name": "Verify Before Swap",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2500,
+        180
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "c2",
+              "leftValue": "={{ $json.validation_passed }}",
+              "rightValue": "true",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "n17",
+      "name": "Validation Passed?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2720,
+        180
+      ]
+    },
+    {
+      "parameters": {
+        "method": "DELETE",
+        "url": "=https://YOUR-PROJECT.supabase.co/rest/v1/regulatory_chunks?document_name=eq.{{ $json.document_name }}&or=(metadata->>amendment_date.is.null,metadata->>amendment_date.neq.{{ $json.latest_amendment }})",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Prefer",
+              "value": "return=minimal"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "n18",
+      "name": "Retire Superseded Chunks",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2960,
+        60
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=You are the regulatory-change analyst for Glosilex, an export-control compliance copilot for the India-US semiconductor corridor.\n\nA monitored US regulation has just been re-ingested into the retrieval corpus.\n\nDocument: {{ $json.document_name }}\nCFR cite: 15 CFR Part {{ $json.cfr_part }}\nVersion we previously held: {{ $json.held_amendment }}\nVersion now published: {{ $json.latest_amendment }}\nSections amended since our copy: {{ $json.sections_moved }}\nOf those, marked substantive by eCFR: {{ $json.sections_substantive }}\nChunks now in corpus: {{ $json.chunks_verified }} (was {{ $json.chunks_before }})\nValidation passed: {{ $json.validation_passed }}\n\nSection titles that changed substantively:\n{{ JSON.stringify($json.changed_section_names) }}\n\nClause identifiers that changed:\n{{ JSON.stringify($json.changed_clauses) }}\n\nDo two things.\n\n1. Use the \"past_classifications\" tool to look up which previously issued Glosilex classifications cited any of the changed clause identifiers. Pass the clause identifiers as the changed_clauses array.\n\n2. Return ONLY a JSON object, no prose and no markdown fence, in this shape:\n\n{\n  \"severity\": \"editorial\" | \"material\" | \"critical\",\n  \"summary\": \"two or three sentences a compliance officer can read in ten seconds - what changed and in which sections\",\n  \"impact\": \"what this means for exporters in the India-US semiconductor corridor specifically; name the ECCNs or control categories affected if you can determine them\",\n  \"affected\": [ { \"classification_id\": \"...\", \"product\": \"...\", \"clause\": \"...\", \"why_it_matters\": \"...\" } ]\n}\n\nGrade severity like this:\n- \"critical\" if a control threshold, an ECCN scope, a license requirement or a country scope changed in a way that could flip a past determination from uncontrolled to controlled.\n- \"material\" if the substance changed but is unlikely to flip an existing determination.\n- \"editorial\" if on inspection the changes are nomenclature or cross-references only.\n\nBe specific and be honest. If you cannot tell from the section titles alone, say so in \"impact\" rather than inventing a conclusion. An overstated alert in a compliance product costs the user real money in unnecessary legal review; an understated one costs them a violation.",
+        "options": {}
+      },
+      "id": "n19",
+      "name": "AI Impact Analyst",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.7,
+      "position": [
+        3200,
+        60
+      ]
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-2.5-flash",
+        "options": {
+          "temperature": 0.1
+        }
+      },
+      "id": "n20",
+      "name": "Gemini 2.5 Flash",
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        3140,
+        280
+      ]
+    },
+    {
+      "parameters": {
+        "toolDescription": "Look up previously issued Glosilex classifications that cited any of the regulatory clauses that just changed. Input is a JSON array of clause identifier strings.",
+        "method": "POST",
+        "url": "https://YOUR-PROJECT.supabase.co/rest/v1/rpc/find_affected_classifications",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\"changed_clauses\": {changed_clauses} }",
+        "placeholderDefinitions": {
+          "values": [
+            {
+              "name": "changed_clauses",
+              "description": "JSON array of clause identifier strings, e.g. [\"774.1\",\"3A001\"]",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "id": "n21",
+      "name": "past_classifications",
+      "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+      "typeVersion": 1.1,
+      "position": [
+        3340,
+        280
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Final audit row + registry update payloads.\nconst out = [];\nfor (const item of $input.all()) {\n  const j = item.json;\n  let analysis = {};\n  try {\n    const raw = j.output ?? j.text ?? '';\n    const match = String(raw).match(/\\{[\\s\\S]*\\}/);\n    if (match) analysis = JSON.parse(match[0]);\n  } catch (e) {\n    analysis = { severity: 'material', summary: 'Agent returned unparseable output.', impact: String(j.output ?? '').slice(0, 2000) };\n  }\n\n  const doc = $('Verify Before Swap').first().json;\n\n  out.push({ json: {\n    run: {\n      document_name:      doc.document_name,\n      jurisdiction:       doc.jurisdiction,\n      outcome:            doc.validation_passed ? 'ingested' : 'halted_validation',\n      previous_amendment: doc.held_amendment,\n      new_amendment:      doc.latest_amendment,\n      chunks_before:      doc.chunks_before,\n      chunks_after:       doc.chunks_verified,\n      change_summary:     analysis.summary  ?? null,\n      impact_assessment:  analysis.impact   ?? null,\n      severity:           analysis.severity ?? 'material',\n      affected_classifications: analysis.affected ?? null,\n    },\n    registry: {\n      last_ingested_amendment: doc.latest_amendment,\n      last_ingested_at:        new Date().toISOString(),\n      chunk_count:             doc.chunks_verified,\n    },\n    document_name: doc.document_name,\n    validation_passed: doc.validation_passed,\n  }});\n}\nreturn out;"
+      },
+      "id": "n22",
+      "name": "Build Audit Record",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3480,
+        60
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://YOUR-PROJECT.supabase.co/rest/v1/ingestion_runs",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Prefer",
+              "value": "return=minimal"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.run) }}",
+        "options": {}
+      },
+      "id": "n23",
+      "name": "Write Audit Row",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3700,
+        60
+      ]
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "=https://YOUR-PROJECT.supabase.co/rest/v1/corpus_registry?document_name=eq.{{ $json.document_name }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Prefer",
+              "value": "return=minimal"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.registry) }}",
+        "options": {}
+      },
+      "id": "n24",
+      "name": "Update Corpus Registry",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3920,
+        60
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// One audit row per document that needed no work. Cheap, and it means the\n// run history answers \"was the corpus checked today?\" not just\n// \"did it change today?\".\nreturn $input.all().map(item => ({ json: {\n  document_name:      item.json.document_name,\n  jurisdiction:       item.json.jurisdiction,\n  outcome:            item.json.decision,\n  previous_amendment: item.json.held_amendment,\n  new_amendment:      item.json.latest_amendment,\n  chunks_before:      item.json.chunks_before,\n  chunks_after:       item.json.chunks_before,\n  severity:           item.json.decision === 'no_change' ? 'none' : 'editorial',\n  change_summary:     item.json.decision === 'no_change'\n    ? 'No amendment newer than the held copy.'\n    : item.json.sections_moved + ' section(s) amended, none marked substantive by eCFR. Re-ingest skipped.',\n}}));"
+      },
+      "id": "n25",
+      "name": "Build No-Change Record",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        740,
+        460
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://YOUR-PROJECT.supabase.co/rest/v1/ingestion_runs",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Prefer",
+              "value": "return=minimal"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json) }}",
+        "options": {}
+      },
+      "id": "n26",
+      "name": "Log Checked, No Action",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        960,
+        460
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://YOUR-PROJECT.supabase.co/rest/v1/ingestion_runs",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Prefer",
+              "value": "return=minimal"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ document_name: $json.document_name, jurisdiction: $json.jurisdiction, outcome: \"halted_validation\", previous_amendment: $json.held_amendment, new_amendment: $json.latest_amendment, chunks_before: $json.chunks_before, chunks_after: $json.chunks_verified, severity: \"critical\", error_detail: $json.validation_note }) }}",
+        "options": {}
+      },
+      "id": "n27",
+      "name": "Halt and Alert",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2960,
+        340
+      ]
+    }
+  ],
+  "connections": {
+    "Every Morning 06:00": {
+      "main": [
+        [
+          {
+            "node": "Load Watchlist",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Run Now (Demo)": {
+      "main": [
+        [
+          {
+            "node": "Load Watchlist",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Load Watchlist": {
+      "main": [
+        [
+          {
+            "node": "Fan Out Watchlist",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fan Out Watchlist": {
+      "main": [
+        [
+          {
+            "node": "Check eCFR Versions",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check eCFR Versions": {
+      "main": [
+        [
+          {
+            "node": "Decide: Change Significant?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Decide: Change Significant?": {
+      "main": [
+        [
+          {
+            "node": "Substantive Change?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Substantive Change?": {
+      "main": [
+        [
+          {
+            "node": "Fetch Current Regulation",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build No-Change Record",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Current Regulation": {
+      "main": [
+        [
+          {
+            "node": "Parse and Chunk",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse and Chunk": {
+      "main": [
+        [
+          {
+            "node": "Build Embedding Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Embedding Request": {
+      "main": [
+        [
+          {
+            "node": "Embed Batch (100 at a time)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Embed Batch (100 at a time)": {
+      "main": [
+        [
+          {
+            "node": "Assemble Rows",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Assemble Rows": {
+      "main": [
+        [
+          {
+            "node": "Insert New Chunks",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Insert New Chunks": {
+      "main": [
+        [
+          {
+            "node": "Aggregate By Document",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aggregate By Document": {
+      "main": [
+        [
+          {
+            "node": "Count What We Wrote",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Count What We Wrote": {
+      "main": [
+        [
+          {
+            "node": "Verify Before Swap",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verify Before Swap": {
+      "main": [
+        [
+          {
+            "node": "Validation Passed?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validation Passed?": {
+      "main": [
+        [
+          {
+            "node": "Retire Superseded Chunks",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Halt and Alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Retire Superseded Chunks": {
+      "main": [
+        [
+          {
+            "node": "AI Impact Analyst",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini 2.5 Flash": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Impact Analyst",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "past_classifications": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Impact Analyst",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Impact Analyst": {
+      "main": [
+        [
+          {
+            "node": "Build Audit Record",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Audit Record": {
+      "main": [
+        [
+          {
+            "node": "Write Audit Row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Write Audit Row": {
+      "main": [
+        [
+          {
+            "node": "Update Corpus Registry",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build No-Change Record": {
+      "main": [
+        [
+          {
+            "node": "Log Checked, No Action",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {},
+  "meta": {
+    "instanceId": "glosilex-corpus-sentinel"
+  },
+  "tags": []
+}
