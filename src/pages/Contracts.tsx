@@ -20,7 +20,7 @@ import { CitationsAccordion } from '../components/CitationsAccordion';
 import { parseCitations } from '../utils/citations';
 import { useNavigate } from 'react-router-dom';
 import { saveContractsState, loadContractsState } from '../utils/sessionPersistence';
-import { getSupabase } from '../services/supabase';
+import { getUserId } from '../services/supabase';
 
 // ─── Design tokens ─────────────────────────────────────────────────────────
 const T = {
@@ -169,8 +169,7 @@ export const Contracts: React.FC = () => {
     window.scrollTo(0, 0);
     const fetchUser = async () => {
       try {
-        const { data } = await getSupabase().auth.getUser();
-        const id = data?.user?.id || 'anonymous';
+        const id = (await getUserId()) || 'anonymous';
         setUserId(id);
 
         const saved = loadContractsState(id);

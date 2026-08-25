@@ -15,16 +15,23 @@ import { Icp } from './pages/Icp';
 import { Contracts } from './pages/Contracts';
 import { Report } from './pages/Report';
 import { hasCredentials } from './utils/session';
+import { ensureSession } from './services/supabase';
 
 export default function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   useEffect(() => {
-    setIsAuthenticated(hasCredentials());
+    const ready = hasCredentials();
+    setIsAuthenticated(ready);
+    // Establish the anonymous Supabase session up front so the first module the
+    // user opens already has a real auth.uid() to write against. Fire-and-forget:
+    // a failure here is logged inside ensureSession and must not block the UI.
+    if (ready) void ensureSession();
   }, []);
 
   const handleCredentialsComplete = () => {
     setIsAuthenticated(true);
+    void ensureSession();
   };
 
   return (

@@ -20,7 +20,7 @@ import { runClassificationChain, ClassificationResult, PartialClassificationData
 import { normalizeClassificationResult } from '../lib/reportService';
 import { useNavigate } from 'react-router-dom';
 import { saveClassifyState, loadClassifyState } from '../utils/sessionPersistence';
-import { getSupabase } from '../services/supabase';
+import { getUserId } from '../services/supabase';
 
 // ── Error Boundary ───────────────────────────────────────────────────────────
 class ClassifyErrorBoundary extends React.Component<
@@ -440,8 +440,7 @@ export const Classify: React.FC = () => {
     window.scrollTo(0, 0);
     const fetchUser = async () => {
       try {
-        const { data } = await getSupabase().auth.getUser();
-        const id = data?.user?.id || 'anonymous';
+        const id = (await getUserId()) || 'anonymous';
         setUserId(id);
 
         const saved = loadClassifyState(id);

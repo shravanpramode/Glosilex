@@ -12,7 +12,7 @@ import {
 import { detectJurisdiction, retrieveChunks } from '../services/retrieval';
 import { generateHypotheticalDoc } from '../lib/hyde';
 import { saveSession } from '../utils/session';
-import { getSupabase } from '../services/supabase';
+import { getSupabase, getUserId } from '../services/supabase';
 import { parseCitations } from '../utils/citations';
 import { LoadingSteps } from '../components/LoadingSteps';
 import { RiskBadge } from '../components/RiskBadge';
@@ -337,8 +337,8 @@ export const Ask: React.FC = () => {
       setLastTopic(userQuery);
 
       const supabase = getSupabase();
-      const { data: authData } = await supabase.auth.getUser();
-      const userId = authData?.user?.id || 'anonymous';
+      const userId = await getUserId();
+      if (!userId) console.warn('No Supabase session - Q&A history will not be saved.');
       try {
         await supabase.from('conversations').insert({
           user_id: userId, question: userQuery, answer: finalAnswer,

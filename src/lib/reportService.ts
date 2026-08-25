@@ -1,5 +1,5 @@
 import { callGemini } from './gemini';
-import { getSupabase } from '../services/supabase';
+import { getSupabase, getUserId } from '../services/supabase';
 import { REPORT_SYNTHESIS_PROMPT, GLOBAL_SYSTEM_PROMPT } from './prompts';
 import { ClassificationResult } from './classificationService';
 import { ICPResult } from './icpService';
@@ -227,8 +227,7 @@ export async function saveReport(
   const supabase = getSupabase();
   const shareToken = crypto.randomUUID();
 
-  const { data: authData } = await supabase.auth.getUser();
-  const userId = authData?.user?.id ?? null;
+  const userId = await getUserId();
 
   const { error } = await supabase.from('reports').insert({
     user_id: userId,
@@ -249,11 +248,13 @@ export async function saveReport(
 
 export async function loadReportByToken(token: string): Promise<NormalizedReport | null> {
   const supabase = getSupabase();
-  const { data, error } = await supabase
-    .from('reports')
-    .select('report_json, synthesized_summary')
-    .eq('share_token', token)
-    .single();
+  // Resolved through a SECURITY DEFINER RPC rather than a direct table read.
+  // A plain SELECT would need an RLS policy permissive enough to expose every
+  // report row to anonymous callers; the RPC returns exactly one row and only
+  // to a caller who already holds the unguessable share token.
+  const { data: rows, error } = await supabase
+    .rpc('get_report_by_token', { token });
+  const data = Array.isArray(rows) ? rows[0] : rows;
 
   if (error || !data) {
     console.error('Failed to load report:', error);

@@ -1,5 +1,5 @@
 import { callGemini } from './gemini';
-import { getSupabase } from '../services/supabase';
+import { getSupabase, getUserId } from '../services/supabase';
 import { embedText } from '../services/embeddings';
 import { ICP_CHAIN, GLOBAL_SYSTEM_PROMPT } from './prompts';
 
@@ -376,8 +376,7 @@ export async function runICPChain(
 
   // Save to Supabase
   onProgress?.('Saving results...');
-  const { data: authData } = await supabase.auth.getUser();
-  const userId = authData?.user?.id ?? null;
+  const userId = await getUserId();
 
   const { data: savedData, error } = await supabase.from('icp_results').insert({
     user_id: userId,

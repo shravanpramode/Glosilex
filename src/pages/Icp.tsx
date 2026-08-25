@@ -20,7 +20,7 @@ import { CitationsAccordion } from '../components/CitationsAccordion';
 import { parseCitations } from '../utils/citations';
 import { useNavigate } from 'react-router-dom';
 import { saveIcpState, loadIcpState } from '../utils/sessionPersistence';
-import { getSupabase } from '../services/supabase';
+import { getUserId } from '../services/supabase';
 import { ICP_COMPONENT_GROUPS, CRITICALITY_CONFIG, matchGroupDocs, STATIC_DOC_FLOW } from '../lib/icpDocGroups';
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
@@ -168,8 +168,7 @@ export const Icp: React.FC = () => {
     window.scrollTo(0, 0);
     const fetchUser = async () => {
       try {
-        const { data } = await getSupabase().auth.getUser();
-        const id = data?.user?.id || 'anonymous';
+        const id = (await getUserId()) || 'anonymous';
         setUserId(id);
 
         const saved = loadIcpState(id);
