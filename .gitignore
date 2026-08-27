@@ -6,3 +6,6 @@ coverage/
 *.log
 .env*
 !.env.example
+
+# local convenience copy with the project id baked in — not for the repo
+agent/*.READY.json
