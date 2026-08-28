@@ -239,7 +239,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Zip embeddings back onto their chunks, then hand Supabase a ready payload.\nconst out = [];\nconst responses = $input.all();\nconst batches   = $('Build Embedding Request').all();\n\nfor (let i = 0; i < responses.length; i++) {\n  const batch = batches[i].json;\n  const embeddings = responses[i].json.embeddings || [];\n\n  if (embeddings.length !== batch.rows.length) {\n    throw new Error(\n      'Embedding count mismatch on batch ' + batch.batch_index +\n      ': expected ' + batch.rows.length + ', got ' + embeddings.length\n    );\n  }\n\n  const rows = batch.rows.map((r, idx) => ({ ...r, embedding: embeddings[idx].values }));\n  out.push({ json: { ...batch, rows: undefined, payload: rows } });\n}\nreturn out;"
+        "jsCode": "// Zip embeddings back onto their chunks, then hand Supabase a ready payload.\nconst out = [];\nconst responses = $input.all();\nconst batches   = $('Build Embedding Request').all();\n\nfor (let i = 0; i < responses.length; i++) {\n  const batch = batches[i].json;\n  const embeddings = responses[i].json.embeddings || [];\n\n  if (embeddings.length !== batch.rows.length) {\n    throw new Error(\n      'Embedding count mismatch on batch ' + batch.batch_index +\n      ': expected ' + batch.rows.length + ', got ' + embeddings.length\n    );\n  }\n\n  const rows = batch.rows.map((r, idx) => ({ ...r, embedding: embeddings[idx].values }));\n\n  // Embed 100 at a time (efficient), but INSERT 25 at a time.\n  //\n  // A 768-float embedding is ~10KB of JSON, so 100 rows is a 1.5MB POST.\n  // Supabase absorbs that in ~3.7s when tested directly, but n8n Cloud\n  // pushing 1.5MB repeatedly over its own egress path hit a 504 \"upstream\n  // request timeout\" after eight minutes with nothing committed. 25 rows is\n  // ~390KB — small enough that a single request is never the slow thing.\n  //\n  // The two batch sizes solve different problems and should not be the same\n  // number: the embed batch is about API quota, the insert batch is about\n  // payload size.\n  const INSERT_BATCH = 25;\n  for (let s = 0; s < rows.length; s += INSERT_BATCH) {\n    out.push({ json: { ...batch, rows: undefined, payload: rows.slice(s, s + INSERT_BATCH) } });\n  }\n}\nreturn out;"
       },
       "id": "n12",
       "name": "Assemble Rows",
@@ -268,7 +268,15 @@
         "sendBody": true,
         "specifyBody": "json",
         "jsonBody": "={{ JSON.stringify($json.payload) }}",
-        "options": {}
+        "options": {
+          "timeout": 120000,
+          "batching": {
+            "batch": {
+              "batchSize": 1,
+              "batchInterval": 300
+            }
+          }
+        }
       },
       "id": "n13",
       "name": "Insert New Chunks",
@@ -279,8 +287,8 @@
         180
       ],
       "retryOnFail": true,
-      "maxTries": 3,
-      "waitBetweenTries": 3000
+      "maxTries": 5,
+      "waitBetweenTries": 10000
     },
     {
       "parameters": {
