@@ -79,7 +79,10 @@
       "position": [
         60,
         300
-      ]
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 10000
     },
     {
       "parameters": {
@@ -157,6 +160,7 @@
       "parameters": {
         "url": "=https://www.ecfr.gov/api/versioner/v1/full/{{ $json.latest_amendment }}/title-{{ $json.cfr_title }}.xml?part={{ $json.cfr_part }}{{ $json.cfr_appendix ? \"&appendix=\" + encodeURIComponent($json.cfr_appendix) : \"\" }}",
         "options": {
+          "timeout": 120000,
           "response": {
             "response": {
               "responseFormat": "text",
@@ -172,7 +176,10 @@
       "position": [
         740,
         180
-      ]
+      ],
+      "retryOnFail": true,
+      "maxTries": 5,
+      "waitBetweenTries": 30000
     },
     {
       "parameters": {
