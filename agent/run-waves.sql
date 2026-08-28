@@ -65,19 +65,46 @@ UPDATE corpus_registry SET is_active = true WHERE document_name = 'EAR_CCL_Part7
 
 
 -- ---------------------------------------------------------------------------
--- WAVE 3 — refresh the stale EAR corpus.  ~6,200 chunks, ~2.5 minutes.
+-- WAVE 3 — refresh the stale EAR corpus.  5,245 chunks, ~2.2 minutes.
 --
 -- This is the wave that actually fixes the five-month staleness, including
 -- Part 774 and its 2026-08-18 amendment. Run it when you have time to watch.
--- ---------------------------------------------------------------------------
+--
+-- Measured against live eCFR on 2026-08-28 — what each document will become:
+--
+--     part   held (PDF)   new (eCFR)
+--     774        4,394        3,779
+--     740          950          844
+--     738          244           88   <-- see below
+--     734          325          282
+--     732          178          153
+--     730          115           99
+--
+-- Every document shrinks, because the PDFs you downloaded included each part's
+-- SUPPLEMENTS and the eCFR part endpoint does not. That is expected, not a
+-- loss of regulatory coverage — with one real exception:
+--
+--   Part 738 drops from 244 to 88 because the Commerce Country Chart is
+--   Supplement No. 1 and is genuinely not in the part body. Its band of
+--   100-600 would reject 88 and halt the run. Widen it first (below).
+--   The Country Chart still needs structured extraction — see expand-corpus.sql.
+--
+-- RUN THIS FIRST, or Wave 3 halts on Part 738:
+--
+-- UPDATE corpus_registry
+-- SET expected_chunk_min = 50
+-- WHERE document_name = 'EAR_CCL_Part738';
+--
+-- Then arm the wave:
+--
 -- UPDATE corpus_registry SET is_active = false;
 -- UPDATE corpus_registry SET is_active = true
---   WHERE document_name IN ('EAR_CCL_Part774',   -- 4,394  the Commerce Control List
---                           'EAR_CCL_Part740',   --   950
---                           'EAR_CCL_Part738',   --   244
---                           'EAR_CCL_Part734',   --   325
---                           'EAR_CCL_Part732',   --   178
---                           'EAR_CCL_Part730');  --   115
+--   WHERE document_name IN ('EAR_CCL_Part774',   -- 4,394 -> 3,779
+--                           'EAR_CCL_Part740',   --   950 ->   844
+--                           'EAR_CCL_Part738',   --   244 ->    88
+--                           'EAR_CCL_Part734',   --   325 ->   282
+--                           'EAR_CCL_Part732',   --   178 ->   153
+--                           'EAR_CCL_Part730');  --   115 ->    99
 
 
 -- ---------------------------------------------------------------------------
