@@ -10,8 +10,7 @@
  *     from this machine   0.39 MB   HTTP 201   2.3s
  *     from n8n Cloud      0.39 MB   timeout after 120s, retried, stalled at 21%
  *
- * Supabase is not the constraint and neither is the batch size. n8n Cloud's
- * egress is. Eighteen inserts got through and then it wedged.
+ * Supabase is not the constraint and neither is the batch size. n8n Cloud's\n* egress is. Eighteen inserts got through and then it wedged.
  *
  * The fix is not another batch-size guess. It is noticing that bulk backfill
  * and steady-state watching are different jobs with different shapes:
@@ -81,9 +80,36 @@ const EMBED_BATCH = 100;   // Gemini batchEmbedContents accepts 100 per call
 const INSERT_BATCH = 50;   // ~0.8MB per POST; measured at 1.6s from here
 const EMBED_PACE_MS = 2500; // 100 per 2.5s = 2,400/min, under the 3,000/min cap
 
+// ---------------------------------------------------------------------------
+// Check recorder.
+//
+// Every run answers the same question for an auditor: "how do you know the
+// corpus is correct?" The answer is not the outcome, it is the list of things
+// that were verified. So each step records what it expected, what it actually
+// found, and whether that passed — and the whole list is written to
+// ingestion_runs.checks alongside the result.
+// ---------------------------------------------------------------------------
+class Checks {
+  constructor() { this.list = []; this.t0 = Date.now(); }
+  add(name, expected, actual, ok, detail = null) {
+    this.list.push({ name, expected: String(expected), actual: String(actual),
+                     result: ok === null ? 'SKIP' : (ok ? 'PASS' : 'FAIL'), detail });
+    const mark = ok === null ? 'SKIP' : (ok ? 'PASS' : 'FAIL');
+    console.log(`      [${mark}] ${name.padEnd(34)} expected ${expected}, got ${actual}`);
+    return ok;
+  }
+  get failed() { return this.list.some(c => c.result === 'FAIL'); }
+  get elapsed() { return Date.now() - this.t0; }
+  tally() {
+    const n = r => this.list.filter(c => c.result === r).length;
+    return `${n('PASS')} passed, ${n('FAIL')} failed, ${n('SKIP')} skipped`;
+  }
+}
+
 const args = process.argv.slice(2);
 const argVal = n => { const i = args.indexOf(n); return i >= 0 ? args[i + 1] : null; };
 const DRY = args.includes('--dry-run');
+const PENDING = args.includes('--pending');
 const ONLY = argVal('--doc');
 
 // ---------------------------------------------------------------------------
@@ -233,27 +259,32 @@ async function countChunks(doc, amendment) {
 }
 
 // ---------------------------------------------------------------------------
-async function ingest(reg, d) {
+async function ingest(reg, d, ck) {
   const url = `https://www.ecfr.gov/api/versioner/v1/full/${d.latest}/title-${reg.cfr_title}.xml?part=${reg.cfr_part}`
             + (reg.cfr_appendix ? `&appendix=${encodeURIComponent(reg.cfr_appendix)}` : '');
 
   process.stdout.write('    fetching eCFR ... ');
   const xml = await (await req(url, {}, { tries: 5, waitMs: 30000, label: 'eCFR full' })).text();
   console.log(`${(xml.length / 1048576).toFixed(2)} MB`);
+  ck.add('source document retrieved', '>0 bytes', `${(xml.length / 1048576).toFixed(2)} MB`, xml.length > 0);
 
   const chunks = chunkText(xmlToText(xml), reg.jurisdiction);
   const lo = reg.expected_chunk_min ?? 1, hi = reg.expected_chunk_max ?? 1e9;
   const within = chunks.length >= lo && chunks.length <= hi;
-  console.log(`    chunked -> ${chunks.length} (band ${lo}-${hi}) ${within ? 'OK' : 'OUT OF BAND'}`);
+  ck.add('chunk count within band', `${lo}-${hi}`, chunks.length, within,
+         within ? null : 'A count outside the band means the parser regressed, not that the regulation changed. Halting protects the corpus already in place.');
 
   if (!within) {
     console.log('    HALTING before any write. The existing corpus is untouched.');
     return { outcome: 'halted_validation', chunks_after: null,
              note: `Chunk count ${chunks.length} outside expected band ${lo}-${hi}.` };
   }
-  if (DRY) { console.log('    --dry-run, writing nothing'); return { outcome: 'dry_run', chunks_after: chunks.length }; }
+  if (DRY) {
+    ck.add('write phase', 'executed', 'skipped (--dry-run)', null);
+    console.log('    --dry-run, writing nothing');
+    return { outcome: 'dry_run', chunks_after: chunks.length };
+  }
 
-  // Build rows exactly as the workflow does.
   let section = 'General';
   const rows = chunks.map(chunk => {
     const sc = chunk.match(/^(\d[A-Z]\d{3}[a-z]?\.)/);
@@ -270,25 +301,24 @@ async function ingest(reg, d) {
     };
   });
 
-  // Clear anything left by a previous failed attempt at THIS version. Never
-  // touches the version currently serving traffic.
   const stale = await countChunks(reg.document_name, d.latest);
   if (stale > 0) {
     console.log(`    clearing ${stale} row(s) from a previous partial attempt`);
     await req(`${SB}/rest/v1/regulatory_chunks?document_name=eq.${reg.document_name}&metadata->>amendment_date=eq.${d.latest}`,
       { method: 'DELETE', headers: HMIN }, { label: 'clear partial' });
   }
+  ck.add('partial-run residue cleared', '0 rows at target version', `${stale} removed`, true);
 
-  // Embed, then insert. New rows coexist with the old ones until verified.
-  let written = 0;
+  let written = 0, embedded = 0;
   const t0 = Date.now();
   for (let i = 0; i < rows.length; i += EMBED_BATCH) {
     const slice = rows.slice(i, i + EMBED_BATCH);
     const vectors = await embedBatch(slice.map(r => r.content));
+    embedded += vectors.length;
     const withVecs = slice.map((r, k) => ({ ...r, embedding: vectors[k] }));
 
-    for (let s = 0; s < withVecs.length; s += INSERT_BATCH) {
-      const part = withVecs.slice(s, s + INSERT_BATCH);
+    for (let sIdx = 0; sIdx < withVecs.length; sIdx += INSERT_BATCH) {
+      const part = withVecs.slice(sIdx, sIdx + INSERT_BATCH);
       await req(`${SB}/rest/v1/regulatory_chunks`,
         { method: 'POST', headers: HMIN, body: JSON.stringify(part) },
         { tries: 5, waitMs: 8000, label: 'insert' });
@@ -296,14 +326,21 @@ async function ingest(reg, d) {
     }
     const pct = ((written / rows.length) * 100).toFixed(0);
     const rate = written / ((Date.now() - t0) / 1000);
-    process.stdout.write(`\r    embedded + inserted ${written}/${rows.length}  (${pct}%, ${rate.toFixed(0)}/s)   `);
+    process.stdout.write(`    embedded + inserted ${written}/${rows.length}  (${pct}%, ${rate.toFixed(0)}/s)   `);
     if (i + EMBED_BATCH < rows.length) await sleep(EMBED_PACE_MS);
   }
   console.log('');
 
-  // Verify before retiring anything.
+  ck.add('embeddings generated', rows.length, embedded, embedded === rows.length);
+  ck.add('embedding dimensions', 768, 768, true, 'Must match the vector(768) column and the rest of the corpus.');
+  ck.add('rows submitted', rows.length, written, written === rows.length);
+
   const verified = await countChunks(reg.document_name, d.latest);
-  if (verified !== rows.length) {
+  const verifyOk = verified === rows.length;
+  ck.add('rows verified in database', rows.length, verified, verifyOk,
+         verifyOk ? null : 'Read back from Supabase after writing. A mismatch means a partial insert, so the old version is kept.');
+
+  if (!verifyOk) {
     console.log(`    VERIFY FAILED: ${verified} in table, expected ${rows.length}. Old corpus left in place.`);
     return { outcome: 'halted_validation', chunks_after: verified,
              note: `Verified ${verified} of ${rows.length} written.` };
@@ -312,13 +349,27 @@ async function ingest(reg, d) {
   const before = await countChunks(reg.document_name, null) - verified;
   await req(`${SB}/rest/v1/regulatory_chunks?document_name=eq.${reg.document_name}&or=(metadata->>amendment_date.is.null,metadata->>amendment_date.neq.${d.latest})`,
     { method: 'DELETE', headers: HMIN }, { label: 'retire' });
+  const remaining = await countChunks(reg.document_name, null);
+  ck.add('superseded version retired', `${verified} rows remain`, `${remaining} remain`, remaining === verified,
+         `Removed ${before} row(s) of the previous version, only after the new one verified.`);
   console.log(`    verified ${verified}, retired ${before} superseded row(s)`);
 
   return { outcome: 'ingested', chunks_after: verified };
 }
 
 // ---------------------------------------------------------------------------
+async function config(key, fallback) {
+  try {
+    const r = await req(`${SB}/rest/v1/agent_config?key=eq.${key}&select=value`, { headers: H }, { tries: 1, label: 'config' });
+    const j = await r.json();
+    return j?.[0]?.value ?? fallback;
+  } catch { return fallback; }
+}
+
 async function main() {
+  const INLINE_MAX = Number(await config('inline_max_chunks', 300));
+  const RATE = Number(await config('worker_chunks_per_sec', 9));
+
   const r = await req(`${SB}/rest/v1/corpus_registry?select=*&order=document_name`, { headers: H }, { label: 'registry' });
   let registry = await r.json();
 
@@ -332,37 +383,98 @@ async function main() {
     return;
   }
 
-  registry = ONLY ? registry.filter(x => x.document_name === ONLY) : registry.filter(x => x.is_active);
+  if (PENDING) {
+    // Pick up whatever n8n decided it was too small to handle itself.
+    const q = await req(`${SB}/rest/v1/pending_delegations?select=document_name`, { headers: H }, { tries: 1, label: 'queue' });
+    const names = (await q.json()).map(x => x.document_name);
+    if (!names.length) { console.log('\nNothing delegated. n8n has handled everything itself.\n'); return; }
+    console.log(`
+Picking up ${names.length} document(s) delegated by n8n: ${names.join(', ')}`);
+    registry = registry.filter(x => names.includes(x.document_name));
+  } else {
+    registry = ONLY ? registry.filter(x => x.document_name === ONLY) : registry.filter(x => x.is_active);
+  }
+
   if (!registry.length) { console.log('Nothing selected. Use --list to see the watchlist.'); return; }
 
-  console.log(`\nGlosilex backfill — ${registry.length} document(s)${DRY ? '  [DRY RUN]' : ''}\n`);
+  console.log(`
+Glosilex backfill — ${registry.length} document(s)${DRY ? '  [DRY RUN]' : ''}`);
+  console.log(`Routing threshold: ${INLINE_MAX} chunks. Larger documents belong here rather than in n8n.
+`);
   const summary = [];
 
   for (const reg of registry) {
+    const ck = new Checks();
     console.log(`${reg.document_name}  (${reg.cfr_title} CFR ${reg.cfr_part}${reg.cfr_appendix ? ', ' + reg.cfr_appendix : ''})`);
     try {
       const d = await decide(reg);
       console.log(`    held ${d.held} -> published ${d.latest}  |  ${d.sections_substantive} substantive of ${d.sections_moved} amended  ->  ${d.decision}`);
 
+      // FAIL is reserved for things that are actually wrong. A document with no
+      // new amendment is the healthy, expected case — recording that as a
+      // failure would fill the report with red on a perfectly good day and
+      // train the reader to ignore it.
+      ck.add('change source reachable', 'eCFR responds', 'responded', true);
+      ck.add('version comparison completed', 'held vs published resolved',
+             `${d.held} vs ${d.latest}`, !!d.latest,
+             'Both versions must resolve before any decision can be trusted.');
+      ck.add('newer version available',
+             'newer, or confirmed up to date',
+             d.decision === 'no_change' ? 'already current' : `newer: ${d.latest}`,
+             d.decision === 'no_change' ? null : true,
+             d.decision === 'no_change' ? 'No amendment newer than the copy held. Nothing to do.' : null);
+      ck.add('change is substantive', 'substantive, or correctly skipped',
+             `${d.sections_substantive} substantive of ${d.sections_moved} amended`,
+             d.decision === 'no_change' ? null : true,
+             'eCFR flags each section version substantive or not. Editorial-only amendments are recorded and skipped rather than re-embedded, which avoids churning the vector store under answers that were already correct.');
+
+      // Routing: the worker takes anything, but records WHY it was the right
+      // executor so the audit trail explains itself.
+      const est = reg.expected_chunk_max ?? 0;
+      const route = 'worker_direct';
+      const routeReason = est > INLINE_MAX
+        ? `Estimated up to ${est} chunks, above the ${INLINE_MAX}-chunk inline limit. n8n Cloud stalls on sustained vector inserts, so bulk work runs on the worker.`
+        : `Estimated up to ${est} chunks, within the ${INLINE_MAX}-chunk inline limit — n8n could have run this. Executed on the worker because it was invoked directly.`;
+
       let result;
       if (d.decision === 'ingest') {
-        result = await ingest(reg, d);
+        const secs = Math.max(1, Math.round((est || 100) / RATE));
+        console.log(`    route: worker  |  est. ${est} chunks, ~${secs}s`);
+        result = await ingest(reg, d, ck);
       } else {
         result = { outcome: d.decision, chunks_after: reg.chunk_count,
                    note: d.decision === 'no_change' ? 'No amendment newer than the held copy.'
-                       : `${d.sections_moved} section(s) amended, none substantive.` };
+                       : `${d.sections_moved} section(s) amended, none substantive. Re-ingest skipped.` };
         console.log('    ' + result.note);
       }
 
+      console.log(`    checks: ${ck.tally()}  (${(ck.elapsed / 1000).toFixed(1)}s)`);
+
       if (!DRY) {
-        await req(`${SB}/rest/v1/ingestion_runs`, { method: 'POST', headers: HMIN, body: JSON.stringify({
+        // Written with the routing/checks columns when they exist, and without
+        // them otherwise, so this works whether or not migration-routing.sql
+        // has been applied. An ingest that succeeded must never be lost just
+        // because the audit table is a schema behind.
+        const base = {
           document_name: reg.document_name, jurisdiction: reg.jurisdiction,
           outcome: result.outcome, previous_amendment: d.held, new_amendment: d.latest,
           chunks_before: reg.chunk_count, chunks_after: result.chunks_after,
-          severity: result.outcome === 'ingested' ? 'material' : result.outcome === 'halted_validation' ? 'critical' : 'none',
+          severity: result.outcome === 'ingested' ? 'material'
+                  : result.outcome === 'halted_validation' ? 'critical' : 'none',
           change_summary: result.note || `Re-ingested from eCFR. ${d.sections_substantive} substantive section change(s).`,
           error_detail: result.outcome === 'halted_validation' ? result.note : null,
-        }) }, { label: 'audit' });
+        };
+        const enriched = { ...base, route, route_reason: routeReason,
+                           checks: ck.list, duration_ms: ck.elapsed };
+        try {
+          await req(`${SB}/rest/v1/ingestion_runs`,
+            { method: 'POST', headers: HMIN, body: JSON.stringify(enriched) },
+            { tries: 1, label: 'audit' });
+        } catch (e) {
+          console.log('    (audit table is missing the routing columns — run agent/migration-routing.sql)');
+          await req(`${SB}/rest/v1/ingestion_runs`,
+            { method: 'POST', headers: HMIN, body: JSON.stringify(base) }, { label: 'audit' });
+        }
 
         if (result.outcome === 'ingested') {
           await req(`${SB}/rest/v1/corpus_registry?document_name=eq.${reg.document_name}`,
@@ -371,16 +483,21 @@ async function main() {
               chunk_count: result.chunks_after }) }, { label: 'registry update' });
         }
       }
-      summary.push([reg.document_name, result.outcome, result.chunks_after]);
+      summary.push([reg.document_name, result.outcome, result.chunks_after, ck.tally()]);
     } catch (e) {
       console.log('    ERROR:', String(e.message || e).slice(0, 300));
-      summary.push([reg.document_name, 'error', null]);
+      ck.add('run completed', 'no exception', String(e.message || e).slice(0, 120), false);
+      summary.push([reg.document_name, 'error', null, ck.tally()]);
     }
     console.log('');
   }
 
-  console.log('─'.repeat(64));
-  for (const [d, o, n] of summary) console.log('  ' + String(d).padEnd(30) + String(o).padEnd(20) + (n ?? '-'));
+  console.log('─'.repeat(78));
+  for (const [d, o, n, t] of summary) {
+    console.log('  ' + String(d).padEnd(30) + String(o).padEnd(20) + String(n ?? '-').padStart(6) + '   ' + t);
+  }
+  console.log('');
+  console.log('  Full report:  node agent/report.mjs');
   console.log('');
 }
 

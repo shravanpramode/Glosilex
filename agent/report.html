@@ -1,0 +1,274 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Glosilex Corpus Report</title>
+<style>
+:root{--bg:#F6F7F9;--card:#fff;--ink:#141A22;--soft:#4A5568;--faint:#7B8698;--rule:#DCE0E7;
+--ok:#0B6E5F;--okbg:#E2F0ED;--bad:#A62F1B;--badbg:#F8E7E3;--warn:#8A5A00;--warnbg:#F8EFDC;--sunk:#EDEFF3;}
+@media(prefers-color-scheme:dark){:root{--bg:#0D1116;--card:#151B23;--ink:#E6EAF0;--soft:#A9B4C2;
+--faint:#77828F;--rule:#28313C;--ok:#39BFA6;--okbg:#12312C;--bad:#E4735C;--badbg:#37201B;
+--warn:#D9A441;--warnbg:#332714;--sunk:#1D242E;}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.6 Georgia,"Times New Roman",serif;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1080px;margin:0 auto;padding:36px 22px 80px}
+h1,h2,summary,th,.pill,.tick,.stat b,.stat span{font-family:"Helvetica Neue",Arial,sans-serif}
+h1{font-size:30px;font-weight:800;letter-spacing:-.02em;margin:0 0 6px}
+.sub{color:var(--soft);margin:0 0 28px}
+h2{font-size:18px;font-weight:600;margin:36px 0 12px}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px}
+.stat{background:var(--card);border:1px solid var(--rule);border-radius:5px;padding:14px 16px}
+.stat b{display:block;font-size:26px;font-weight:700;font-variant-numeric:tabular-nums}
+.stat span{font-size:10.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--faint);font-weight:600}
+.run{background:var(--card);border:1px solid var(--rule);border-radius:5px;margin-bottom:8px}
+.run summary{cursor:pointer;padding:13px 16px;display:flex;flex-wrap:wrap;gap:10px;align-items:center;font-size:13.5px}
+.run[open] summary{border-bottom:1px solid var(--rule)}
+.doc{font-weight:600;min-width:200px}
+.ver,.counts{color:var(--soft);font-family:ui-monospace,Menlo,monospace;font-size:12px}
+.checks{margin-left:auto;color:var(--soft);font-size:12px}
+.when{color:var(--faint);font-size:11.5px;width:100%}
+.body{padding:16px}
+.route,.summary,.impact,.err{margin:0 0 12px;max-width:74ch}
+.why{color:var(--faint);font-size:13.5px}
+.err{color:var(--bad)}
+.pill,.tick{font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;padding:3px 7px;border-radius:3px;white-space:nowrap}
+.pill.ok,.tick.pass{background:var(--okbg);color:var(--ok)}
+.pill.bad,.tick.fail{background:var(--badbg);color:var(--bad)}
+.pill.warn{background:var(--warnbg);color:var(--warn)}
+.pill.muted,.tick.skip{background:var(--sunk);color:var(--soft)}
+b.bad{color:var(--bad)}
+table{width:100%;border-collapse:collapse;font-size:13.5px}
+.tblwrap{overflow-x:auto;border:1px solid var(--rule);border-radius:5px;background:var(--card)}
+th{text-align:left;padding:9px 12px;font-size:10.5px;letter-spacing:.09em;text-transform:uppercase;
+color:var(--faint);background:var(--sunk);border-bottom:1px solid var(--rule);font-weight:600}
+td{padding:8px 12px;border-bottom:1px solid var(--rule);vertical-align:top}
+tr:last-child td{border-bottom:none}
+.num{font-family:ui-monospace,Menlo,monospace;font-variant-numeric:tabular-nums;white-space:nowrap}
+.detail{color:var(--faint);font-size:12.5px;max-width:38ch}
+.c-fail{background:var(--badbg)}
+.muted{color:var(--faint)}
+footer{margin-top:40px;padding-top:18px;border-top:1px solid var(--rule);
+color:var(--faint);font-size:12px;font-family:ui-monospace,Menlo,monospace}
+</style></head><body><div class="wrap">
+<h1>Glosilex Corpus Report</h1>
+<p class="sub">Every ingestion decision the agent made, and every check it ran before touching the corpus.</p>
+
+<div class="stats">
+  <div class="stat"><b>24,169</b><span>chunks held</span></div>
+  <div class="stat"><b>23</b><span>documents watched</span></div>
+  <div class="stat"><b>5</b><span>runs recorded</span></div>
+  <div class="stat"><b>2</b><span>ingested</span></div>
+  <div class="stat"><b>0</b><span>checks run</span></div>
+  <div class="stat"><b style="color:inherit">0</b><span>checks failed</span></div>
+</div>
+
+
+<h2>Run history</h2>
+
+  <details class="run">
+    <summary>
+      <span class="doc">EAR_Enforcement_Part764</span>
+      <span class="pill ok">ingested</span>
+      <span class="ver"> &rarr; 2024-10-17</span>
+      <span class="counts">0 &rarr; 138 chunks</span>
+      <span class="checks">0 pass</span>
+      <span class="when">8/29/2026, 4:07:37 PM</span>
+    </summary>
+    <div class="body">
+      
+      <p class="summary">Re-ingested from eCFR. 17 substantive section change(s).</p>
+      
+      
+      <p class="muted">No checks recorded — this run predates check recording.</p>
+    </div>
+  </details>
+  <details class="run">
+    <summary>
+      <span class="doc">EAR_CCL_Part736</span>
+      <span class="pill muted">no_change</span>
+      <span class="ver">2026-07-16 &rarr; 2026-07-16</span>
+      <span class="counts">91 &rarr; 91 chunks</span>
+      <span class="checks">0 pass</span>
+      <span class="when">8/28/2026, 5:17:12 PM</span>
+    </summary>
+    <div class="body">
+      
+      <p class="summary">No amendment newer than the held copy.</p>
+      
+      
+      <p class="muted">No checks recorded — this run predates check recording.</p>
+    </div>
+  </details>
+  <details class="run">
+    <summary>
+      <span class="doc">EAR_CCL_Part736</span>
+      <span class="pill ok">ingested</span>
+      <span class="ver">2026-03-05 &rarr; 2026-07-16</span>
+      <span class="counts">106 &rarr; 91 chunks</span>
+      <span class="checks">0 pass</span>
+      <span class="when">8/28/2026, 3:42:28 PM</span>
+    </summary>
+    <div class="body">
+      
+      <p class="summary">A substantive amendment has been made to 'Supplement No. 1 to Part 736—General Orders' within 15 CFR Part 736. This update, published on 2026-07-16, supersedes the previous version from 2026-03-05.</p>
+      <p class="impact"><b>Impact:</b> The specific implications for exporters in the India-US semiconductor corridor cannot be fully determined from the section title alone. 'Supplement No. 1 to Part 736' typically outlines general prohibitions and licensing policies, meaning changes here could potentially affect a wide range of ECCNs and control categories. Exporters should review the updated text to understand any new or modified requirements, especially concerning general prohibitions or license exceptions. I was unable to retrieve past Glosilex classifications that cited this clause due to a tool error.</p>
+      
+      <p class="muted">No checks recorded — this run predates check recording.</p>
+    </div>
+  </details>
+  <details class="run">
+    <summary>
+      <span class="doc">EAR_CCL_Part738</span>
+      <span class="pill muted">no_change</span>
+      <span class="ver">2026-03-05 &rarr; 2025-09-30</span>
+      <span class="counts">244 &rarr; 244 chunks</span>
+      <span class="checks">0 pass</span>
+      <span class="when">8/28/2026, 3:15:06 AM</span>
+    </summary>
+    <div class="body">
+      
+      <p class="summary">No amendment newer than the held copy.</p>
+      
+      
+      <p class="muted">No checks recorded — this run predates check recording.</p>
+    </div>
+  </details>
+  <details class="run">
+    <summary>
+      <span class="doc">EAR_CCL_Part734</span>
+      <span class="pill muted">no_change</span>
+      <span class="ver">2026-03-05 &rarr; 2025-11-12</span>
+      <span class="counts">325 &rarr; 325 chunks</span>
+      <span class="checks">0 pass</span>
+      <span class="when">8/28/2026, 3:15:06 AM</span>
+    </summary>
+    <div class="body">
+      
+      <p class="summary">No amendment newer than the held copy.</p>
+      
+      
+      <p class="muted">No checks recorded — this run predates check recording.</p>
+    </div>
+  </details>
+
+<h2>Watchlist</h2>
+<div class="tblwrap"><table>
+<thead><tr><th>Document</th><th>Regime</th><th>Citation</th><th>Version held</th><th>Chunks</th><th>Status</th></tr></thead>
+<tbody>
+  <tr><td>BIS_Entity_List_Part744</td><td>EAR_US</td>
+      <td class="num">15 CFR 744</td>
+      <td class="num">2026-03-05</td>
+      <td class="num">17734</td>
+      <td><span class="tick skip">PAUSED</span></td></tr>
+  <tr><td>EAR_Applications_Part748</td><td>EAR_US</td>
+      <td class="num">15 CFR 748</td>
+      <td class="num">—</td>
+      <td class="num">0</td>
+      <td><span class="tick pass">WATCHED</span></td></tr>
+  <tr><td>EAR_CCL_Part730</td><td>EAR_US</td>
+      <td class="num">15 CFR 730</td>
+      <td class="num">2026-03-05</td>
+      <td class="num">115</td>
+      <td><span class="tick skip">PAUSED</span></td></tr>
+  <tr><td>EAR_CCL_Part732</td><td>EAR_US</td>
+      <td class="num">15 CFR 732</td>
+      <td class="num">2026-03-05</td>
+      <td class="num">178</td>
+      <td><span class="tick skip">PAUSED</span></td></tr>
+  <tr><td>EAR_CCL_Part734</td><td>EAR_US</td>
+      <td class="num">15 CFR 734</td>
+      <td class="num">2026-03-05</td>
+      <td class="num">325</td>
+      <td><span class="tick skip">PAUSED</span></td></tr>
+  <tr><td>EAR_CCL_Part736</td><td>EAR_US</td>
+      <td class="num">15 CFR 736</td>
+      <td class="num">2026-07-16</td>
+      <td class="num">91</td>
+      <td><span class="tick skip">PAUSED</span></td></tr>
+  <tr><td>EAR_CCL_Part738</td><td>EAR_US</td>
+      <td class="num">15 CFR 738</td>
+      <td class="num">2026-03-05</td>
+      <td class="num">244</td>
+      <td><span class="tick skip">PAUSED</span></td></tr>
+  <tr><td>EAR_CCL_Part740</td><td>EAR_US</td>
+      <td class="num">15 CFR 740</td>
+      <td class="num">2026-03-05</td>
+      <td class="num">950</td>
+      <td><span class="tick skip">PAUSED</span></td></tr>
+  <tr><td>EAR_CCL_Part774</td><td>EAR_US</td>
+      <td class="num">15 CFR 774</td>
+      <td class="num">2026-03-05</td>
+      <td class="num">4394</td>
+      <td><span class="tick skip">PAUSED</span></td></tr>
+  <tr><td>EAR_ControlPolicy_Part742</td><td>EAR_US</td>
+      <td class="num">15 CFR 742</td>
+      <td class="num">—</td>
+      <td class="num">0</td>
+      <td><span class="tick pass">WATCHED</span></td></tr>
+  <tr><td>EAR_Embargoes_Part746</td><td>EAR_US</td>
+      <td class="num">15 CFR 746</td>
+      <td class="num">—</td>
+      <td class="num">0</td>
+      <td><span class="tick pass">WATCHED</span></td></tr>
+  <tr><td>EAR_Enforcement_Part764</td><td>EAR_US</td>
+      <td class="num">15 CFR 764</td>
+      <td class="num">2024-10-17</td>
+      <td class="num">138</td>
+      <td><span class="tick pass">WATCHED</span></td></tr>
+  <tr><td>ITAR_Agreements_Part124</td><td>ITAR_US</td>
+      <td class="num">22 CFR 124</td>
+      <td class="num">—</td>
+      <td class="num">0</td>
+      <td><span class="tick skip">PAUSED</span></td></tr>
+  <tr><td>ITAR_Brokering_Part129</td><td>ITAR_US</td>
+      <td class="num">22 CFR 129</td>
+      <td class="num">—</td>
+      <td class="num">0</td>
+      <td><span class="tick skip">PAUSED</span></td></tr>
+  <tr><td>ITAR_Definitions_Part120</td><td>ITAR_US</td>
+      <td class="num">22 CFR 120</td>
+      <td class="num">—</td>
+      <td class="num">0</td>
+      <td><span class="tick skip">PAUSED</span></td></tr>
+  <tr><td>ITAR_Licenses_Part123</td><td>ITAR_US</td>
+      <td class="num">22 CFR 123</td>
+      <td class="num">—</td>
+      <td class="num">0</td>
+      <td><span class="tick skip">PAUSED</span></td></tr>
+  <tr><td>ITAR_Policies_Part126</td><td>ITAR_US</td>
+      <td class="num">22 CFR 126</td>
+      <td class="num">—</td>
+      <td class="num">0</td>
+      <td><span class="tick skip">PAUSED</span></td></tr>
+  <tr><td>ITAR_Political_Part130</td><td>ITAR_US</td>
+      <td class="num">22 CFR 130</td>
+      <td class="num">—</td>
+      <td class="num">0</td>
+      <td><span class="tick skip">PAUSED</span></td></tr>
+  <tr><td>ITAR_Procedures_Part128</td><td>ITAR_US</td>
+      <td class="num">22 CFR 128</td>
+      <td class="num">—</td>
+      <td class="num">0</td>
+      <td><span class="tick skip">PAUSED</span></td></tr>
+  <tr><td>ITAR_Registration_Part122</td><td>ITAR_US</td>
+      <td class="num">22 CFR 122</td>
+      <td class="num">—</td>
+      <td class="num">0</td>
+      <td><span class="tick skip">PAUSED</span></td></tr>
+  <tr><td>ITAR_TechData_Part125</td><td>ITAR_US</td>
+      <td class="num">22 CFR 125</td>
+      <td class="num">—</td>
+      <td class="num">0</td>
+      <td><span class="tick skip">PAUSED</span></td></tr>
+  <tr><td>ITAR_USML_Part121</td><td>ITAR_US</td>
+      <td class="num">22 CFR 121</td>
+      <td class="num">—</td>
+      <td class="num">0</td>
+      <td><span class="tick skip">PAUSED</span></td></tr>
+  <tr><td>ITAR_Violations_Part127</td><td>ITAR_US</td>
+      <td class="num">22 CFR 127</td>
+      <td class="num">—</td>
+      <td class="num">0</td>
+      <td><span class="tick skip">PAUSED</span></td></tr></tbody></table></div>
+
+<footer>Generated 8/29/2026, 6:32:20 PM from ingestion_runs and corpus_registry.<br>
+Glosilex Regulatory Corpus Sentinel.</footer>
+</div></body></html>
