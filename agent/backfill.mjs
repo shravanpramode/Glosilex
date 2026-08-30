@@ -612,6 +612,25 @@ Glosilex backfill — ${registry.length} document(s)${DRY ? '  [DRY RUN]' : ''}`
     console.log('  ' + String(d).padEnd(30) + String(o).padEnd(20) + String(n ?? '-').padStart(6) + '   ' + t);
   }
   console.log('');
+
+  // Exit non-zero when anything failed.
+  //
+  // The Entity List run swallowed a per-document error, finished the loop, and
+  // returned 0 — so GitHub Actions went green, published a report and committed
+  // it, while the corpus held two conflicting versions of the same regulation.
+  // Continuing past one bad document is right; reporting success afterwards is
+  // not. CI has to be able to tell the difference.
+  const failed = summary.filter(([, o]) => o === 'error' || o === 'halted_validation');
+  if (failed.length) {
+    console.log('  ' + failed.length + ' document(s) did NOT complete:');
+    for (const [d, o] of failed) console.log('    - ' + d + ' (' + o + ')');
+    console.log('');
+    console.log('  Full report:  node agent/report.mjs');
+    console.log('');
+    process.exitCode = 1;
+    return;
+  }
+
   console.log('  Full report:  node agent/report.mjs');
   console.log('');
 }
