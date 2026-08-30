@@ -177,7 +177,12 @@ function chunkText(text, jurisdiction) {
               : jurisdiction === 'EAR_US' ? earRegex
               : new RegExp('(' + scometRegex.source + '|' + earRegex.source + ')');
 
-  const parts = text.split(new RegExp('(?=' + regex.source + ')', 'g'));
+  // String.split() splices capture-group values into its output. The
+  // combined SCOMET|EAR pattern used for every other jurisdiction is an
+  // alternation, so the non-matching branch contributes `undefined` and
+  // the caller trips over it. Keep only real strings.
+  const parts = text.split(new RegExp('(?=' + regex.source + ')', 'g'))
+    .filter(x => typeof x === 'string' && x.length > 0);
   const chunks = [];
   let current = '';
   for (const raw of parts) {
