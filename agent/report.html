@@ -9,68 +9,461 @@
 --warn:#D9A441;--warnbg:#332714;--sunk:#1D242E;}}
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.6 Georgia,"Times New Roman",serif;-webkit-font-smoothing:antialiased}
-.wrap{max-width:1080px;margin:0 auto;padding:36px 22px 80px}
-h1,h2,summary,th,.pill,.tick,.stat b,.stat span{font-family:"Helvetica Neue",Arial,sans-serif}
+.wrap{max-width:1240px;margin:0 auto;padding:36px 22px 80px}
+h1,h2,summary,th,.pill,.tick,.stat b,.stat span,.jur,.rlabel{font-family:"Helvetica Neue",Arial,sans-serif}
 h1{font-size:30px;font-weight:800;letter-spacing:-.02em;margin:0 0 6px}
-.sub{color:var(--soft);margin:0 0 28px}
-h2{font-size:18px;font-weight:600;margin:36px 0 12px}
-.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px}
+.sub{color:var(--soft);margin:0 0 26px;max-width:76ch}
+h2{font-size:18px;font-weight:600;margin:38px 0 6px}
+.h2note{color:var(--faint);font-size:13.5px;margin:0 0 12px;max-width:80ch}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(132px,1fr));gap:12px}
 .stat{background:var(--card);border:1px solid var(--rule);border-radius:5px;padding:14px 16px}
-.stat b{display:block;font-size:26px;font-weight:700;font-variant-numeric:tabular-nums}
+.stat b{display:block;font-size:25px;font-weight:700;font-variant-numeric:tabular-nums}
 .stat span{font-size:10.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--faint);font-weight:600}
+table{width:100%;border-collapse:collapse;font-size:13.5px}
+.tblwrap{overflow-x:auto;border:1px solid var(--rule);border-radius:5px;background:var(--card)}
+th{text-align:left;padding:9px 12px;font-size:10.5px;letter-spacing:.09em;text-transform:uppercase;
+color:var(--faint);background:var(--sunk);border-bottom:1px solid var(--rule);font-weight:600;white-space:nowrap}
+td{padding:9px 12px;border-bottom:1px solid var(--rule);vertical-align:top}
+.reason-row td{border-bottom:1px solid var(--rule);padding-top:0;color:var(--faint);font-size:12.5px}
+.rlabel{font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--faint);font-weight:600;margin-right:6px}
+.num{font-family:ui-monospace,Menlo,monospace;font-variant-numeric:tabular-nums;white-space:nowrap}
+.doclink{color:var(--ink);font-weight:600;text-decoration:none;border-bottom:1px solid var(--rule)}
+.doclink:hover{color:var(--ok);border-color:var(--ok)}
+.cite,.pubr{font-size:11.5px;color:var(--faint);font-family:ui-monospace,Menlo,monospace}
+.pubr{font-family:"Helvetica Neue",Arial,sans-serif}
+.jur{font-size:10px;font-weight:600;letter-spacing:.07em;padding:2px 6px;border-radius:3px;background:var(--sunk);color:var(--soft)}
+.pill,.tick{font-size:10px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;padding:3px 7px;border-radius:3px;white-space:nowrap;display:inline-block}
+.pill.ok,.tick.ok{background:var(--okbg);color:var(--ok)}
+.pill.bad,.tick.bad{background:var(--badbg);color:var(--bad)}
+.pill.warn,.tick.warn{background:var(--warnbg);color:var(--warn)}
+.pill.muted,.tick.muted{background:var(--sunk);color:var(--soft)}
+b.bad{color:var(--bad)}
 .run{background:var(--card);border:1px solid var(--rule);border-radius:5px;margin-bottom:8px}
 .run summary{cursor:pointer;padding:13px 16px;display:flex;flex-wrap:wrap;gap:10px;align-items:center;font-size:13.5px}
 .run[open] summary{border-bottom:1px solid var(--rule)}
-.doc{font-weight:600;min-width:200px}
+.doc{font-weight:600;min-width:190px}
 .ver,.counts{color:var(--soft);font-family:ui-monospace,Menlo,monospace;font-size:12px}
 .checks{margin-left:auto;color:var(--soft);font-size:12px}
 .when{color:var(--faint);font-size:11.5px;width:100%}
 .body{padding:16px}
-.route,.summary,.impact,.err{margin:0 0 12px;max-width:74ch}
+.route,.summary,.impact,.err,.okline{margin:0 0 12px;max-width:78ch}
 .why{color:var(--faint);font-size:13.5px}
 .err{color:var(--bad)}
-.pill,.tick{font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;padding:3px 7px;border-radius:3px;white-space:nowrap}
-.pill.ok,.tick.pass{background:var(--okbg);color:var(--ok)}
-.pill.bad,.tick.fail{background:var(--badbg);color:var(--bad)}
-.pill.warn{background:var(--warnbg);color:var(--warn)}
-.pill.muted,.tick.skip{background:var(--sunk);color:var(--soft)}
-b.bad{color:var(--bad)}
-table{width:100%;border-collapse:collapse;font-size:13.5px}
-.tblwrap{overflow-x:auto;border:1px solid var(--rule);border-radius:5px;background:var(--card)}
-th{text-align:left;padding:9px 12px;font-size:10.5px;letter-spacing:.09em;text-transform:uppercase;
-color:var(--faint);background:var(--sunk);border-bottom:1px solid var(--rule);font-weight:600}
-td{padding:8px 12px;border-bottom:1px solid var(--rule);vertical-align:top}
-tr:last-child td{border-bottom:none}
-.num{font-family:ui-monospace,Menlo,monospace;font-variant-numeric:tabular-nums;white-space:nowrap}
+.okline{color:var(--ok)}
 .detail{color:var(--faint);font-size:12.5px;max-width:38ch}
 .c-fail{background:var(--badbg)}
 .muted{color:var(--faint)}
-footer{margin-top:40px;padding-top:18px;border-top:1px solid var(--rule);
+code{font-family:ui-monospace,Menlo,monospace;font-size:.87em;background:var(--sunk);padding:1px 5px;border-radius:3px}
+.legend{background:var(--card);border:1px solid var(--rule);border-left:3px solid var(--ok);
+border-radius:0 5px 5px 0;padding:14px 18px;margin:12px 0 20px;font-size:13.5px;max-width:80ch}
+.legend b{font-family:"Helvetica Neue",Arial,sans-serif}
+footer{margin-top:44px;padding-top:18px;border-top:1px solid var(--rule);
 color:var(--faint);font-size:12px;font-family:ui-monospace,Menlo,monospace}
 </style></head><body><div class="wrap">
 <h1>Glosilex Corpus Report</h1>
-<p class="sub">Every ingestion decision the agent made, and every check it ran before touching the corpus.</p>
+<p class="sub">What the law says today, what the corpus holds, and every check the agent ran before changing anything.</p>
 
 <div class="stats">
   <div class="stat"><b>24,169</b><span>chunks held</span></div>
-  <div class="stat"><b>23</b><span>documents watched</span></div>
-  <div class="stat"><b>5</b><span>runs recorded</span></div>
-  <div class="stat"><b>2</b><span>ingested</span></div>
-  <div class="stat"><b>0</b><span>checks run</span></div>
+  <div class="stat"><b>23</b><span>documents tracked</span></div>
+  <div class="stat"><b>2</b><span>jurisdictions</span></div>
+  <div class="stat"><b style="color:var(--bad)">19</b><span>need update</span></div>
+  <div class="stat"><b style="color:inherit">0</b><span>review overdue</span></div>
   <div class="stat"><b style="color:inherit">0</b><span>checks failed</span></div>
 </div>
 
+<h2>Coverage by jurisdiction</h2>
+<p class="h2note">Glosilex claims dual-jurisdiction coverage. This table is where that claim is either true or not.</p>
+<div class="tblwrap"><table>
+<thead><tr><th>Regime</th><th>Documents</th><th>Chunks</th><th>Freshness</th></tr></thead>
+<tbody>
+  <tr><td><span class="jur">EAR_US</span></td><td class="num">12</td>
+      <td class="num">24,169</td>
+      <td><span class="tick bad">8 need attention</span></td></tr>
+  <tr><td><span class="jur">ITAR_US</span></td><td class="num">11</td>
+      <td class="num">0</td>
+      <td><span class="tick bad">11 need attention</span></td></tr></tbody></table></div>
+
+<h2>Blind-spot check</h2>
+<p class="h2note">Any document present in the corpus but absent from the watchlist is being served to users with nothing monitoring it.</p>
+<p class="muted">Reconciliation view not found — run <code>agent/migration-full-coverage.sql</code> to enable it.</p>
+
+<h2>Corpus freshness</h2>
+<div class="legend">
+  <b>The two dates mean different things.</b><br>
+  <b>Published version</b> — the newest amendment the governing body has issued, fetched live from eCFR when this report was generated.<br>
+  <b>Version held</b> — the version of the document sitting in our corpus. This is a <i>document</i> date, not an activity date.<br>
+  <b>Last refreshed</b> — when our pipeline last wrote this document into Supabase. This is an <i>activity</i> timestamp.<br>
+  A document can be refreshed today and still hold a 2024 version, if 2024 is the newest amendment that exists. That is correct, not stale.
+</div>
+<div class="tblwrap"><table>
+<thead><tr><th>Document</th><th>Regime</th><th>Published version</th><th>Version held</th><th>Last refreshed</th><th>Status</th><th>Chunks</th></tr></thead>
+<tbody>
+  <tr>
+    <td>
+      <a href="https://www.ecfr.gov/current/title-15/part-744" target="_blank" rel="noopener" class="doclink">BIS_Entity_List_Part744</a>
+      <div class="cite">15 CFR 744, Supplement No. 4 to Part 744</div>
+      <div class="pubr"></div>
+    </td>
+    <td><span class="jur">EAR_US</span><div class="cite">ecfr</div></td>
+    <td class="num">24 Aug 2026</td>
+    <td class="num">05 Mar 2026</td>
+    <td class="num">28 Aug 2026, 02:33</td>
+    <td><span class="tick bad">UPDATE NEEDED</span></td>
+    <td class="num">17,734</td>
+  </tr>
+  <tr class="reason-row"><td colspan="7"><span class="rlabel">Why:</span> eCFR published an amendment on 24 Aug 2026; the corpus holds 05 Mar 2026. The corpus is 172 days behind the law.</td></tr>
+  <tr>
+    <td>
+      <a href="https://www.ecfr.gov/current/title-15/part-748" target="_blank" rel="noopener" class="doclink">EAR_Applications_Part748</a>
+      <div class="cite">15 CFR 748</div>
+      <div class="pubr"></div>
+    </td>
+    <td><span class="jur">EAR_US</span><div class="cite">ecfr</div></td>
+    <td class="num">15 Jan 2026</td>
+    <td class="num">—</td>
+    <td class="num">never</td>
+    <td><span class="tick bad">UPDATE NEEDED</span></td>
+    <td class="num">0</td>
+  </tr>
+  <tr class="reason-row"><td colspan="7"><span class="rlabel">Why:</span> No copy held at all — this document has never been ingested. eCFR publishes 15 Jan 2026.</td></tr>
+  <tr>
+    <td>
+      <a href="https://www.ecfr.gov/current/title-15/part-730" target="_blank" rel="noopener" class="doclink">EAR_CCL_Part730</a>
+      <div class="cite">15 CFR 730</div>
+      <div class="pubr"></div>
+    </td>
+    <td><span class="jur">EAR_US</span><div class="cite">ecfr</div></td>
+    <td class="num">16 Jul 2026</td>
+    <td class="num">05 Mar 2026</td>
+    <td class="num">28 Aug 2026, 02:33</td>
+    <td><span class="tick bad">UPDATE NEEDED</span></td>
+    <td class="num">115</td>
+  </tr>
+  <tr class="reason-row"><td colspan="7"><span class="rlabel">Why:</span> eCFR published an amendment on 16 Jul 2026; the corpus holds 05 Mar 2026. The corpus is 133 days behind the law.</td></tr>
+  <tr>
+    <td>
+      <a href="https://www.ecfr.gov/current/title-15/part-732" target="_blank" rel="noopener" class="doclink">EAR_CCL_Part732</a>
+      <div class="cite">15 CFR 732</div>
+      <div class="pubr"></div>
+    </td>
+    <td><span class="jur">EAR_US</span><div class="cite">ecfr</div></td>
+    <td class="num">16 Jul 2026</td>
+    <td class="num">05 Mar 2026</td>
+    <td class="num">28 Aug 2026, 02:33</td>
+    <td><span class="tick bad">UPDATE NEEDED</span></td>
+    <td class="num">178</td>
+  </tr>
+  <tr class="reason-row"><td colspan="7"><span class="rlabel">Why:</span> eCFR published an amendment on 16 Jul 2026; the corpus holds 05 Mar 2026. The corpus is 133 days behind the law.</td></tr>
+  <tr>
+    <td>
+      <a href="https://www.ecfr.gov/current/title-15/part-734" target="_blank" rel="noopener" class="doclink">EAR_CCL_Part734</a>
+      <div class="cite">15 CFR 734</div>
+      <div class="pubr"></div>
+    </td>
+    <td><span class="jur">EAR_US</span><div class="cite">ecfr</div></td>
+    <td class="num">12 Nov 2025</td>
+    <td class="num">05 Mar 2026</td>
+    <td class="num">28 Aug 2026, 02:33</td>
+    <td><span class="tick ok">UP TO DATE</span></td>
+    <td class="num">325</td>
+  </tr>
+  <tr class="reason-row"><td colspan="7"><span class="rlabel">Why:</span> The most recent amendment eCFR has published is 12 Nov 2025, and that is exactly the version held. There is nothing newer to ingest.</td></tr>
+  <tr>
+    <td>
+      <a href="https://www.ecfr.gov/current/title-15/part-736" target="_blank" rel="noopener" class="doclink">EAR_CCL_Part736</a>
+      <div class="cite">15 CFR 736</div>
+      <div class="pubr"></div>
+    </td>
+    <td><span class="jur">EAR_US</span><div class="cite">ecfr</div></td>
+    <td class="num">16 Jul 2026</td>
+    <td class="num">16 Jul 2026</td>
+    <td class="num">28 Aug 2026, 15:42</td>
+    <td><span class="tick ok">UP TO DATE</span></td>
+    <td class="num">91</td>
+  </tr>
+  <tr class="reason-row"><td colspan="7"><span class="rlabel">Why:</span> The most recent amendment eCFR has published is 16 Jul 2026, and that is exactly the version held. There is nothing newer to ingest.</td></tr>
+  <tr>
+    <td>
+      <a href="https://www.ecfr.gov/current/title-15/part-738" target="_blank" rel="noopener" class="doclink">EAR_CCL_Part738</a>
+      <div class="cite">15 CFR 738</div>
+      <div class="pubr"></div>
+    </td>
+    <td><span class="jur">EAR_US</span><div class="cite">ecfr</div></td>
+    <td class="num">30 Sept 2025</td>
+    <td class="num">05 Mar 2026</td>
+    <td class="num">28 Aug 2026, 02:33</td>
+    <td><span class="tick ok">UP TO DATE</span></td>
+    <td class="num">244</td>
+  </tr>
+  <tr class="reason-row"><td colspan="7"><span class="rlabel">Why:</span> The most recent amendment eCFR has published is 30 Sept 2025, and that is exactly the version held. There is nothing newer to ingest.</td></tr>
+  <tr>
+    <td>
+      <a href="https://www.ecfr.gov/current/title-15/part-740" target="_blank" rel="noopener" class="doclink">EAR_CCL_Part740</a>
+      <div class="cite">15 CFR 740</div>
+      <div class="pubr"></div>
+    </td>
+    <td><span class="jur">EAR_US</span><div class="cite">ecfr</div></td>
+    <td class="num">14 Aug 2026</td>
+    <td class="num">05 Mar 2026</td>
+    <td class="num">28 Aug 2026, 02:33</td>
+    <td><span class="tick bad">UPDATE NEEDED</span></td>
+    <td class="num">950</td>
+  </tr>
+  <tr class="reason-row"><td colspan="7"><span class="rlabel">Why:</span> eCFR published an amendment on 14 Aug 2026; the corpus holds 05 Mar 2026. The corpus is 162 days behind the law.</td></tr>
+  <tr>
+    <td>
+      <a href="https://www.ecfr.gov/current/title-15/part-774" target="_blank" rel="noopener" class="doclink">EAR_CCL_Part774</a>
+      <div class="cite">15 CFR 774</div>
+      <div class="pubr"></div>
+    </td>
+    <td><span class="jur">EAR_US</span><div class="cite">ecfr</div></td>
+    <td class="num">18 Aug 2026</td>
+    <td class="num">05 Mar 2026</td>
+    <td class="num">28 Aug 2026, 02:33</td>
+    <td><span class="tick bad">UPDATE NEEDED</span></td>
+    <td class="num">4,394</td>
+  </tr>
+  <tr class="reason-row"><td colspan="7"><span class="rlabel">Why:</span> eCFR published an amendment on 18 Aug 2026; the corpus holds 05 Mar 2026. The corpus is 166 days behind the law.</td></tr>
+  <tr>
+    <td>
+      <a href="https://www.ecfr.gov/current/title-15/part-742" target="_blank" rel="noopener" class="doclink">EAR_ControlPolicy_Part742</a>
+      <div class="cite">15 CFR 742</div>
+      <div class="pubr"></div>
+    </td>
+    <td><span class="jur">EAR_US</span><div class="cite">ecfr</div></td>
+    <td class="num">23 Jul 2026</td>
+    <td class="num">—</td>
+    <td class="num">never</td>
+    <td><span class="tick bad">UPDATE NEEDED</span></td>
+    <td class="num">0</td>
+  </tr>
+  <tr class="reason-row"><td colspan="7"><span class="rlabel">Why:</span> No copy held at all — this document has never been ingested. eCFR publishes 23 Jul 2026.</td></tr>
+  <tr>
+    <td>
+      <a href="https://www.ecfr.gov/current/title-15/part-746" target="_blank" rel="noopener" class="doclink">EAR_Embargoes_Part746</a>
+      <div class="cite">15 CFR 746</div>
+      <div class="pubr"></div>
+    </td>
+    <td><span class="jur">EAR_US</span><div class="cite">ecfr</div></td>
+    <td class="num">23 Jul 2026</td>
+    <td class="num">—</td>
+    <td class="num">never</td>
+    <td><span class="tick bad">UPDATE NEEDED</span></td>
+    <td class="num">0</td>
+  </tr>
+  <tr class="reason-row"><td colspan="7"><span class="rlabel">Why:</span> No copy held at all — this document has never been ingested. eCFR publishes 23 Jul 2026.</td></tr>
+  <tr>
+    <td>
+      <a href="https://www.ecfr.gov/current/title-15/part-764" target="_blank" rel="noopener" class="doclink">EAR_Enforcement_Part764</a>
+      <div class="cite">15 CFR 764</div>
+      <div class="pubr"></div>
+    </td>
+    <td><span class="jur">EAR_US</span><div class="cite">ecfr</div></td>
+    <td class="num">17 Oct 2024</td>
+    <td class="num">17 Oct 2024</td>
+    <td class="num">29 Aug 2026, 16:07</td>
+    <td><span class="tick ok">UP TO DATE</span></td>
+    <td class="num">138</td>
+  </tr>
+  <tr class="reason-row"><td colspan="7"><span class="rlabel">Why:</span> The most recent amendment eCFR has published is 17 Oct 2024, and that is exactly the version held. There is nothing newer to ingest.</td></tr>
+  <tr>
+    <td>
+      <a href="https://www.ecfr.gov/current/title-22/part-124" target="_blank" rel="noopener" class="doclink">ITAR_Agreements_Part124</a>
+      <div class="cite">22 CFR 124</div>
+      <div class="pubr"></div>
+    </td>
+    <td><span class="jur">ITAR_US</span><div class="cite">ecfr</div></td>
+    <td class="num">03 Sept 2024</td>
+    <td class="num">—</td>
+    <td class="num">never</td>
+    <td><span class="tick bad">UPDATE NEEDED</span></td>
+    <td class="num">0</td>
+  </tr>
+  <tr class="reason-row"><td colspan="7"><span class="rlabel">Why:</span> No copy held at all — this document has never been ingested. eCFR publishes 03 Sept 2024.</td></tr>
+  <tr>
+    <td>
+      <a href="https://www.ecfr.gov/current/title-22/part-129" target="_blank" rel="noopener" class="doclink">ITAR_Brokering_Part129</a>
+      <div class="cite">22 CFR 129</div>
+      <div class="pubr"></div>
+    </td>
+    <td><span class="jur">ITAR_US</span><div class="cite">ecfr</div></td>
+    <td class="num">08 Jan 2025</td>
+    <td class="num">—</td>
+    <td class="num">never</td>
+    <td><span class="tick bad">UPDATE NEEDED</span></td>
+    <td class="num">0</td>
+  </tr>
+  <tr class="reason-row"><td colspan="7"><span class="rlabel">Why:</span> No copy held at all — this document has never been ingested. eCFR publishes 08 Jan 2025.</td></tr>
+  <tr>
+    <td>
+      <a href="https://www.ecfr.gov/current/title-22/part-120" target="_blank" rel="noopener" class="doclink">ITAR_Definitions_Part120</a>
+      <div class="cite">22 CFR 120</div>
+      <div class="pubr"></div>
+    </td>
+    <td><span class="jur">ITAR_US</span><div class="cite">ecfr</div></td>
+    <td class="num">07 Jul 2025</td>
+    <td class="num">—</td>
+    <td class="num">never</td>
+    <td><span class="tick bad">UPDATE NEEDED</span></td>
+    <td class="num">0</td>
+  </tr>
+  <tr class="reason-row"><td colspan="7"><span class="rlabel">Why:</span> No copy held at all — this document has never been ingested. eCFR publishes 07 Jul 2025.</td></tr>
+  <tr>
+    <td>
+      <a href="https://www.ecfr.gov/current/title-22/part-123" target="_blank" rel="noopener" class="doclink">ITAR_Licenses_Part123</a>
+      <div class="cite">22 CFR 123</div>
+      <div class="pubr"></div>
+    </td>
+    <td><span class="jur">ITAR_US</span><div class="cite">ecfr</div></td>
+    <td class="num">03 Sept 2024</td>
+    <td class="num">—</td>
+    <td class="num">never</td>
+    <td><span class="tick bad">UPDATE NEEDED</span></td>
+    <td class="num">0</td>
+  </tr>
+  <tr class="reason-row"><td colspan="7"><span class="rlabel">Why:</span> No copy held at all — this document has never been ingested. eCFR publishes 03 Sept 2024.</td></tr>
+  <tr>
+    <td>
+      <a href="https://www.ecfr.gov/current/title-22/part-126" target="_blank" rel="noopener" class="doclink">ITAR_Policies_Part126</a>
+      <div class="cite">22 CFR 126</div>
+      <div class="pubr"></div>
+    </td>
+    <td><span class="jur">ITAR_US</span><div class="cite">ecfr</div></td>
+    <td class="num">30 Dec 2025</td>
+    <td class="num">—</td>
+    <td class="num">never</td>
+    <td><span class="tick bad">UPDATE NEEDED</span></td>
+    <td class="num">0</td>
+  </tr>
+  <tr class="reason-row"><td colspan="7"><span class="rlabel">Why:</span> No copy held at all — this document has never been ingested. eCFR publishes 30 Dec 2025.</td></tr>
+  <tr>
+    <td>
+      <a href="https://www.ecfr.gov/current/title-22/part-130" target="_blank" rel="noopener" class="doclink">ITAR_Political_Part130</a>
+      <div class="cite">22 CFR 130</div>
+      <div class="pubr"></div>
+    </td>
+    <td><span class="jur">ITAR_US</span><div class="cite">ecfr</div></td>
+    <td class="num">06 Sept 2022</td>
+    <td class="num">—</td>
+    <td class="num">never</td>
+    <td><span class="tick bad">UPDATE NEEDED</span></td>
+    <td class="num">0</td>
+  </tr>
+  <tr class="reason-row"><td colspan="7"><span class="rlabel">Why:</span> No copy held at all — this document has never been ingested. eCFR publishes 06 Sept 2022.</td></tr>
+  <tr>
+    <td>
+      <a href="https://www.ecfr.gov/current/title-22/part-128" target="_blank" rel="noopener" class="doclink">ITAR_Procedures_Part128</a>
+      <div class="cite">22 CFR 128</div>
+      <div class="pubr"></div>
+    </td>
+    <td><span class="jur">ITAR_US</span><div class="cite">ecfr</div></td>
+    <td class="num">06 Sept 2022</td>
+    <td class="num">—</td>
+    <td class="num">never</td>
+    <td><span class="tick bad">UPDATE NEEDED</span></td>
+    <td class="num">0</td>
+  </tr>
+  <tr class="reason-row"><td colspan="7"><span class="rlabel">Why:</span> No copy held at all — this document has never been ingested. eCFR publishes 06 Sept 2022.</td></tr>
+  <tr>
+    <td>
+      <a href="https://www.ecfr.gov/current/title-22/part-122" target="_blank" rel="noopener" class="doclink">ITAR_Registration_Part122</a>
+      <div class="cite">22 CFR 122</div>
+      <div class="pubr"></div>
+    </td>
+    <td><span class="jur">ITAR_US</span><div class="cite">ecfr</div></td>
+    <td class="num">08 Jan 2025</td>
+    <td class="num">—</td>
+    <td class="num">never</td>
+    <td><span class="tick bad">UPDATE NEEDED</span></td>
+    <td class="num">0</td>
+  </tr>
+  <tr class="reason-row"><td colspan="7"><span class="rlabel">Why:</span> No copy held at all — this document has never been ingested. eCFR publishes 08 Jan 2025.</td></tr>
+  <tr>
+    <td>
+      <a href="https://www.ecfr.gov/current/title-22/part-125" target="_blank" rel="noopener" class="doclink">ITAR_TechData_Part125</a>
+      <div class="cite">22 CFR 125</div>
+      <div class="pubr"></div>
+    </td>
+    <td><span class="jur">ITAR_US</span><div class="cite">ecfr</div></td>
+    <td class="num">06 Sept 2022</td>
+    <td class="num">—</td>
+    <td class="num">never</td>
+    <td><span class="tick bad">UPDATE NEEDED</span></td>
+    <td class="num">0</td>
+  </tr>
+  <tr class="reason-row"><td colspan="7"><span class="rlabel">Why:</span> No copy held at all — this document has never been ingested. eCFR publishes 06 Sept 2022.</td></tr>
+  <tr>
+    <td>
+      <a href="https://www.ecfr.gov/current/title-22/part-121" target="_blank" rel="noopener" class="doclink">ITAR_USML_Part121</a>
+      <div class="cite">22 CFR 121</div>
+      <div class="pubr"></div>
+    </td>
+    <td><span class="jur">ITAR_US</span><div class="cite">ecfr</div></td>
+    <td class="num">23 Jul 2026</td>
+    <td class="num">—</td>
+    <td class="num">never</td>
+    <td><span class="tick bad">UPDATE NEEDED</span></td>
+    <td class="num">0</td>
+  </tr>
+  <tr class="reason-row"><td colspan="7"><span class="rlabel">Why:</span> No copy held at all — this document has never been ingested. eCFR publishes 23 Jul 2026.</td></tr>
+  <tr>
+    <td>
+      <a href="https://www.ecfr.gov/current/title-22/part-127" target="_blank" rel="noopener" class="doclink">ITAR_Violations_Part127</a>
+      <div class="cite">22 CFR 127</div>
+      <div class="pubr"></div>
+    </td>
+    <td><span class="jur">ITAR_US</span><div class="cite">ecfr</div></td>
+    <td class="num">10 Jan 2025</td>
+    <td class="num">—</td>
+    <td class="num">never</td>
+    <td><span class="tick bad">UPDATE NEEDED</span></td>
+    <td class="num">0</td>
+  </tr>
+  <tr class="reason-row"><td colspan="7"><span class="rlabel">Why:</span> No copy held at all — this document has never been ingested. eCFR publishes 10 Jan 2025.</td></tr></tbody></table></div>
 
 <h2>Run history</h2>
+<p class="h2note">0 checks recorded across 7 runs.</p>
 
   <details class="run">
     <summary>
-      <span class="doc">EAR_Enforcement_Part764</span>
-      <span class="pill ok">ingested</span>
-      <span class="ver"> &rarr; 2024-10-17</span>
+      <span class="doc">EAR_CCL_Part736</span><span class="pill muted">no_change</span>
+      <span class="ver">16 Jul 2026 &rarr; 16 Jul 2026</span>
+      <span class="counts">91 &rarr; 91 chunks</span>
+      <span class="checks">0 pass</span>
+      <span class="when">29 Aug 2026, 18:33</span>
+    </summary>
+    <div class="body">
+      
+      <p class="summary">No amendment newer than the held copy.</p>
+      
+      
+      <p class="muted">No checks recorded — this run predates check recording.</p>
+    </div>
+  </details>
+  <details class="run">
+    <summary>
+      <span class="doc">EAR_CCL_Part736</span><span class="pill muted">no_change</span>
+      <span class="ver">16 Jul 2026 &rarr; 16 Jul 2026</span>
+      <span class="counts">91 &rarr; 91 chunks</span>
+      <span class="checks">0 pass</span>
+      <span class="when">29 Aug 2026, 18:32</span>
+    </summary>
+    <div class="body">
+      
+      <p class="summary">No amendment newer than the held copy.</p>
+      
+      
+      <p class="muted">No checks recorded — this run predates check recording.</p>
+    </div>
+  </details>
+  <details class="run">
+    <summary>
+      <span class="doc">EAR_Enforcement_Part764</span><span class="pill ok">ingested</span>
+      <span class="ver">— &rarr; 17 Oct 2024</span>
       <span class="counts">0 &rarr; 138 chunks</span>
       <span class="checks">0 pass</span>
-      <span class="when">8/29/2026, 4:07:37 PM</span>
+      <span class="when">29 Aug 2026, 16:07</span>
     </summary>
     <div class="body">
       
@@ -82,12 +475,11 @@ color:var(--faint);font-size:12px;font-family:ui-monospace,Menlo,monospace}
   </details>
   <details class="run">
     <summary>
-      <span class="doc">EAR_CCL_Part736</span>
-      <span class="pill muted">no_change</span>
-      <span class="ver">2026-07-16 &rarr; 2026-07-16</span>
+      <span class="doc">EAR_CCL_Part736</span><span class="pill muted">no_change</span>
+      <span class="ver">16 Jul 2026 &rarr; 16 Jul 2026</span>
       <span class="counts">91 &rarr; 91 chunks</span>
       <span class="checks">0 pass</span>
-      <span class="when">8/28/2026, 5:17:12 PM</span>
+      <span class="when">28 Aug 2026, 17:17</span>
     </summary>
     <div class="body">
       
@@ -99,12 +491,11 @@ color:var(--faint);font-size:12px;font-family:ui-monospace,Menlo,monospace}
   </details>
   <details class="run">
     <summary>
-      <span class="doc">EAR_CCL_Part736</span>
-      <span class="pill ok">ingested</span>
-      <span class="ver">2026-03-05 &rarr; 2026-07-16</span>
+      <span class="doc">EAR_CCL_Part736</span><span class="pill ok">ingested</span>
+      <span class="ver">05 Mar 2026 &rarr; 16 Jul 2026</span>
       <span class="counts">106 &rarr; 91 chunks</span>
       <span class="checks">0 pass</span>
-      <span class="when">8/28/2026, 3:42:28 PM</span>
+      <span class="when">28 Aug 2026, 15:42</span>
     </summary>
     <div class="body">
       
@@ -116,12 +507,11 @@ color:var(--faint);font-size:12px;font-family:ui-monospace,Menlo,monospace}
   </details>
   <details class="run">
     <summary>
-      <span class="doc">EAR_CCL_Part738</span>
-      <span class="pill muted">no_change</span>
-      <span class="ver">2026-03-05 &rarr; 2025-09-30</span>
+      <span class="doc">EAR_CCL_Part738</span><span class="pill muted">no_change</span>
+      <span class="ver">05 Mar 2026 &rarr; 30 Sept 2025</span>
       <span class="counts">244 &rarr; 244 chunks</span>
       <span class="checks">0 pass</span>
-      <span class="when">8/28/2026, 3:15:06 AM</span>
+      <span class="when">28 Aug 2026, 03:15</span>
     </summary>
     <div class="body">
       
@@ -133,12 +523,11 @@ color:var(--faint);font-size:12px;font-family:ui-monospace,Menlo,monospace}
   </details>
   <details class="run">
     <summary>
-      <span class="doc">EAR_CCL_Part734</span>
-      <span class="pill muted">no_change</span>
-      <span class="ver">2026-03-05 &rarr; 2025-11-12</span>
+      <span class="doc">EAR_CCL_Part734</span><span class="pill muted">no_change</span>
+      <span class="ver">05 Mar 2026 &rarr; 12 Nov 2025</span>
       <span class="counts">325 &rarr; 325 chunks</span>
       <span class="checks">0 pass</span>
-      <span class="when">8/28/2026, 3:15:06 AM</span>
+      <span class="when">28 Aug 2026, 03:15</span>
     </summary>
     <div class="body">
       
@@ -149,126 +538,6 @@ color:var(--faint);font-size:12px;font-family:ui-monospace,Menlo,monospace}
     </div>
   </details>
 
-<h2>Watchlist</h2>
-<div class="tblwrap"><table>
-<thead><tr><th>Document</th><th>Regime</th><th>Citation</th><th>Version held</th><th>Chunks</th><th>Status</th></tr></thead>
-<tbody>
-  <tr><td>BIS_Entity_List_Part744</td><td>EAR_US</td>
-      <td class="num">15 CFR 744</td>
-      <td class="num">2026-03-05</td>
-      <td class="num">17734</td>
-      <td><span class="tick skip">PAUSED</span></td></tr>
-  <tr><td>EAR_Applications_Part748</td><td>EAR_US</td>
-      <td class="num">15 CFR 748</td>
-      <td class="num">—</td>
-      <td class="num">0</td>
-      <td><span class="tick pass">WATCHED</span></td></tr>
-  <tr><td>EAR_CCL_Part730</td><td>EAR_US</td>
-      <td class="num">15 CFR 730</td>
-      <td class="num">2026-03-05</td>
-      <td class="num">115</td>
-      <td><span class="tick skip">PAUSED</span></td></tr>
-  <tr><td>EAR_CCL_Part732</td><td>EAR_US</td>
-      <td class="num">15 CFR 732</td>
-      <td class="num">2026-03-05</td>
-      <td class="num">178</td>
-      <td><span class="tick skip">PAUSED</span></td></tr>
-  <tr><td>EAR_CCL_Part734</td><td>EAR_US</td>
-      <td class="num">15 CFR 734</td>
-      <td class="num">2026-03-05</td>
-      <td class="num">325</td>
-      <td><span class="tick skip">PAUSED</span></td></tr>
-  <tr><td>EAR_CCL_Part736</td><td>EAR_US</td>
-      <td class="num">15 CFR 736</td>
-      <td class="num">2026-07-16</td>
-      <td class="num">91</td>
-      <td><span class="tick skip">PAUSED</span></td></tr>
-  <tr><td>EAR_CCL_Part738</td><td>EAR_US</td>
-      <td class="num">15 CFR 738</td>
-      <td class="num">2026-03-05</td>
-      <td class="num">244</td>
-      <td><span class="tick skip">PAUSED</span></td></tr>
-  <tr><td>EAR_CCL_Part740</td><td>EAR_US</td>
-      <td class="num">15 CFR 740</td>
-      <td class="num">2026-03-05</td>
-      <td class="num">950</td>
-      <td><span class="tick skip">PAUSED</span></td></tr>
-  <tr><td>EAR_CCL_Part774</td><td>EAR_US</td>
-      <td class="num">15 CFR 774</td>
-      <td class="num">2026-03-05</td>
-      <td class="num">4394</td>
-      <td><span class="tick skip">PAUSED</span></td></tr>
-  <tr><td>EAR_ControlPolicy_Part742</td><td>EAR_US</td>
-      <td class="num">15 CFR 742</td>
-      <td class="num">—</td>
-      <td class="num">0</td>
-      <td><span class="tick pass">WATCHED</span></td></tr>
-  <tr><td>EAR_Embargoes_Part746</td><td>EAR_US</td>
-      <td class="num">15 CFR 746</td>
-      <td class="num">—</td>
-      <td class="num">0</td>
-      <td><span class="tick pass">WATCHED</span></td></tr>
-  <tr><td>EAR_Enforcement_Part764</td><td>EAR_US</td>
-      <td class="num">15 CFR 764</td>
-      <td class="num">2024-10-17</td>
-      <td class="num">138</td>
-      <td><span class="tick pass">WATCHED</span></td></tr>
-  <tr><td>ITAR_Agreements_Part124</td><td>ITAR_US</td>
-      <td class="num">22 CFR 124</td>
-      <td class="num">—</td>
-      <td class="num">0</td>
-      <td><span class="tick skip">PAUSED</span></td></tr>
-  <tr><td>ITAR_Brokering_Part129</td><td>ITAR_US</td>
-      <td class="num">22 CFR 129</td>
-      <td class="num">—</td>
-      <td class="num">0</td>
-      <td><span class="tick skip">PAUSED</span></td></tr>
-  <tr><td>ITAR_Definitions_Part120</td><td>ITAR_US</td>
-      <td class="num">22 CFR 120</td>
-      <td class="num">—</td>
-      <td class="num">0</td>
-      <td><span class="tick skip">PAUSED</span></td></tr>
-  <tr><td>ITAR_Licenses_Part123</td><td>ITAR_US</td>
-      <td class="num">22 CFR 123</td>
-      <td class="num">—</td>
-      <td class="num">0</td>
-      <td><span class="tick skip">PAUSED</span></td></tr>
-  <tr><td>ITAR_Policies_Part126</td><td>ITAR_US</td>
-      <td class="num">22 CFR 126</td>
-      <td class="num">—</td>
-      <td class="num">0</td>
-      <td><span class="tick skip">PAUSED</span></td></tr>
-  <tr><td>ITAR_Political_Part130</td><td>ITAR_US</td>
-      <td class="num">22 CFR 130</td>
-      <td class="num">—</td>
-      <td class="num">0</td>
-      <td><span class="tick skip">PAUSED</span></td></tr>
-  <tr><td>ITAR_Procedures_Part128</td><td>ITAR_US</td>
-      <td class="num">22 CFR 128</td>
-      <td class="num">—</td>
-      <td class="num">0</td>
-      <td><span class="tick skip">PAUSED</span></td></tr>
-  <tr><td>ITAR_Registration_Part122</td><td>ITAR_US</td>
-      <td class="num">22 CFR 122</td>
-      <td class="num">—</td>
-      <td class="num">0</td>
-      <td><span class="tick skip">PAUSED</span></td></tr>
-  <tr><td>ITAR_TechData_Part125</td><td>ITAR_US</td>
-      <td class="num">22 CFR 125</td>
-      <td class="num">—</td>
-      <td class="num">0</td>
-      <td><span class="tick skip">PAUSED</span></td></tr>
-  <tr><td>ITAR_USML_Part121</td><td>ITAR_US</td>
-      <td class="num">22 CFR 121</td>
-      <td class="num">—</td>
-      <td class="num">0</td>
-      <td><span class="tick skip">PAUSED</span></td></tr>
-  <tr><td>ITAR_Violations_Part127</td><td>ITAR_US</td>
-      <td class="num">22 CFR 127</td>
-      <td class="num">—</td>
-      <td class="num">0</td>
-      <td><span class="tick skip">PAUSED</span></td></tr></tbody></table></div>
-
-<footer>Generated 8/29/2026, 6:32:20 PM from ingestion_runs and corpus_registry.<br>
+<footer>Generated 30/08/2026, 06:18:20 from corpus_registry, ingestion_runs and a live eCFR check.<br>
 Glosilex Regulatory Corpus Sentinel.</footer>
 </div></body></html>

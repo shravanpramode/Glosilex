@@ -405,7 +405,40 @@ Glosilex backfill — ${registry.length} document(s)${DRY ? '  [DRY RUN]' : ''}`
 
   for (const reg of registry) {
     const ck = new Checks();
-    console.log(`${reg.document_name}  (${reg.cfr_title} CFR ${reg.cfr_part}${reg.cfr_appendix ? ', ' + reg.cfr_appendix : ''})`);
+    const cite = reg.cfr_title ? `${reg.cfr_title} CFR ${reg.cfr_part}${reg.cfr_appendix ? ', ' + reg.cfr_appendix : ''}`
+                               : (reg.document_version || reg.source_type);
+    console.log(`${reg.document_name}  (${cite})`);
+
+    // Not every document is machine-checkable, and pretending otherwise is how
+    // a monitoring system ends up reporting healthy about something it never
+    // looked at. SCOMET has no versioned API; a 1992 statute and a published
+    // Federal Register rule cannot change at all. Say so, record it, move on.
+    if (reg.source_type && reg.source_type !== 'ecfr') {
+      const since = reg.last_reviewed_at || reg.last_ingested_at;
+      const days = since ? Math.floor((Date.now() - new Date(since).getTime()) / 86400000) : null;
+
+      if (reg.source_type === 'static') {
+        ck.add('document is immutable', 'no monitoring required', 'confirmed static', true,
+               reg.source_note || 'Published once. Cannot go out of date.');
+        console.log('    static document — immutable, nothing to check');
+        summary.push([reg.document_name, 'static', reg.chunk_count, ck.tally()]);
+      } else {
+        const overdue = reg.review_cadence_days && days !== null && days > reg.review_cadence_days;
+        ck.add('manual review within cadence',
+               `<= ${reg.review_cadence_days ?? '?'} days`,
+               days === null ? 'never reviewed' : `${days} days ago`,
+               !overdue,
+               `${reg.publisher || 'This publisher'} offers no API. Freshness here depends on a human checking ${reg.source_url || 'the source'}.`);
+        console.log(overdue
+          ? `    MANUAL REVIEW OVERDUE — last checked ${days} days ago, cadence ${reg.review_cadence_days} days`
+          : `    manual source — last checked ${days === null ? 'never' : days + ' days ago'}, within cadence`);
+        summary.push([reg.document_name, overdue ? 'review_overdue' : 'review_current', reg.chunk_count, ck.tally()]);
+      }
+      console.log(`    checks: ${ck.tally()}`);
+      console.log('');
+      continue;
+    }
+
     try {
       const d = await decide(reg);
       console.log(`    held ${d.held} -> published ${d.latest}  |  ${d.sections_substantive} substantive of ${d.sections_moved} amended  ->  ${d.decision}`);
