@@ -1,0 +1,151 @@
+# ============================================================================
+# Glosilex — Corpus Sentinel worker (cloud)
+# ============================================================================
+#
+# WHY THIS EXISTS
+#
+# n8n watches and decides, but cannot move large volumes of vector data — it
+# stalled repeatedly pushing embeddings into Supabase from its own cloud. The
+# work was moved to a local script, which fixed the throughput but created a
+# worse problem: the pipeline only ran when one particular laptop was open.
+#
+# A compliance product cannot depend on somebody being at their desk. This runs
+# the same worker on GitHub's infrastructure instead:
+#
+#   n8n decides  ->  GitHub Actions executes  ->  Supabase stores
+#
+# Three ways to start it:
+#   repository_dispatch  n8n calls the GitHub API when it delegates a document
+#   workflow_dispatch    a button in the Actions tab, for running it by hand
+#   schedule             a daily safety net, in case a trigger is ever missed
+# ============================================================================
+
+name: Corpus Sentinel Worker
+
+on:
+  # n8n fires this when "Delegate to Worker" runs.
+  repository_dispatch:
+    types: [corpus-delegation]
+
+  # Manual button in the GitHub Actions tab.
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'What to ingest'
+        required: true
+        default: 'pending'
+        type: choice
+        options:
+          - pending      # only what n8n delegated
+          - active       # everything currently is_active in corpus_registry
+          - report-only  # regenerate the report, ingest nothing
+
+  # Safety net: drain anything n8n delegated but that never got picked up.
+  # 01:00 UTC = 06:30 IST, half an hour after the n8n watch runs.
+  schedule:
+    - cron: '0 1 * * *'
+
+# Needed so the job can commit the refreshed report back to the repository.
+permissions:
+  contents: write
+
+concurrency:
+  # Never let two ingests touch the corpus at the same time. A second run
+  # would clear the first one's rows mid-write.
+  group: corpus-sentinel
+  cancel-in-progress: false
+
+jobs:
+  ingest:
+    name: Ingest and report
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Confirm the secrets are present
+        run: |
+          missing=0
+          for v in SUPABASE_URL SUPABASE_SERVICE_ROLE_KEY GEMINI_API_KEY; do
+            if [ -z "${!v}" ]; then echo "MISSING SECRET: $v"; missing=1; fi
+          done
+          if [ "$missing" = "1" ]; then
+            echo "Add these under Settings -> Secrets and variables -> Actions."
+            exit 1
+          fi
+          echo "All three secrets are set."
+
+      - name: Show what triggered this run
+        run: |
+          echo "Trigger: ${{ github.event_name }}"
+          if [ "${{ github.event_name }}" = "repository_dispatch" ]; then
+            echo "Delegated by n8n: ${{ github.event.client_payload.document || '(not specified)' }}"
+            echo "Reason: ${{ github.event.client_payload.reason || '(not specified)' }}"
+          fi
+
+      - name: Show the watchlist before any changes
+        run: node agent/backfill.mjs --list
+
+      # ----------------------------------------------------------------------
+      # The ingest itself. Default is --pending: only what n8n actually asked
+      # for. That matters — a trigger should never quietly re-ingest the whole
+      # corpus because somebody left a document armed.
+      # ----------------------------------------------------------------------
+      - name: Ingest delegated documents
+        if: github.event_name != 'workflow_dispatch' || inputs.mode == 'pending'
+        run: node agent/backfill.mjs --pending
+
+      - name: Ingest everything currently armed
+        if: github.event_name == 'workflow_dispatch' && inputs.mode == 'active'
+        run: node agent/backfill.mjs
+
+      - name: Generate the corpus report
+        run: |
+          mkdir -p docs
+          node agent/report.mjs --out docs/index.html --limit 100
+
+      # Downloadable from the run page even if Pages is not set up.
+      - name: Attach the report to this run
+        uses: actions/upload-artifact@v4
+        with:
+          name: corpus-report
+          path: docs/index.html
+          retention-days: 90
+
+      # Publishes to GitHub Pages when Pages is enabled on /docs.
+      - name: Publish the report
+        run: |
+          git config user.name  "corpus-sentinel[bot]"
+          git config user.email "corpus-sentinel@users.noreply.github.com"
+          git add docs/index.html
+          if git diff --staged --quiet; then
+            echo "Report unchanged — nothing to commit."
+          else
+            git commit -m "chore(report): corpus report $(date -u +'%Y-%m-%d %H:%M UTC') [skip ci]"
+            git push
+            echo "Report published."
+          fi
+
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "## Corpus Sentinel run"
+            echo ""
+            echo "- Trigger: \`${{ github.event_name }}\`"
+            echo "- Finished: $(date -u +'%Y-%m-%d %H:%M UTC')"
+            echo ""
+            echo "The report is attached to this run as **corpus-report**."
+          } >> $GITHUB_STEP_SUMMARY

@@ -527,6 +527,43 @@
     },
     {
       "parameters": {
+        "method": "POST",
+        "url": "https://api.github.com/repos/shravanpramode/Glosilex/dispatches",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "githubApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Accept",
+              "value": "application/vnd.github+json"
+            },
+            {
+              "name": "X-GitHub-Api-Version",
+              "value": "2022-11-28"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ event_type: \"corpus-delegation\", client_payload: { document: $(\"Within n8n Limit?\").first().json.document_name, chunks: $(\"Within n8n Limit?\").first().json.chunks_produced, reason: $(\"Within n8n Limit?\").first().json.route_reason } }) }}",
+        "options": {}
+      },
+      "id": "n31",
+      "name": "Trigger Cloud Worker",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1300,
+        420
+      ],
+      "executeOnce": true,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 10000
+    },
+    {
+      "parameters": {
         "jsCode": "// Final audit row + registry update payloads.\nconst out = [];\nfor (const item of $input.all()) {\n  const j = item.json;\n  let analysis = {};\n  try {\n    const raw = j.output ?? j.text ?? '';\n    const match = String(raw).match(/\\{[\\s\\S]*\\}/);\n    if (match) analysis = JSON.parse(match[0]);\n  } catch (e) {\n    analysis = { severity: 'material', summary: 'Agent returned unparseable output.', impact: String(j.output ?? '').slice(0, 2000) };\n  }\n\n  const doc = $('Verify Before Swap').all()[out.length].json;   // per-item, not .first()\n\n  out.push({ json: {\n    run: {\n      document_name:      doc.document_name,\n      jurisdiction:       doc.jurisdiction,\n      outcome:            doc.validation_passed ? 'ingested' : 'halted_validation',\n      previous_amendment: doc.held_amendment,\n      new_amendment:      doc.latest_amendment,\n      chunks_before:      doc.chunks_before,\n      chunks_after:       doc.chunks_verified,\n      change_summary:     analysis.summary  ?? null,\n      impact_assessment:  analysis.impact   ?? null,\n      severity:           analysis.severity ?? 'material',\n      affected_classifications: analysis.affected ?? null,\n    },\n    registry: {\n      last_ingested_amendment: doc.latest_amendment,\n      last_ingested_at:        new Date().toISOString(),\n      chunk_count:             doc.chunks_verified,\n    },\n    document_name: doc.document_name,\n    validation_passed: doc.validation_passed,\n  }});\n}\nreturn out;"
       },
       "id": "n22",
@@ -959,6 +996,17 @@
         [
           {
             "node": "Update Corpus Registry",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Delegate to Worker": {
+      "main": [
+        [
+          {
+            "node": "Trigger Cloud Worker",
             "type": "main",
             "index": 0
           }
