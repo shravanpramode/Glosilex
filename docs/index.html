@@ -64,10 +64,10 @@ color:var(--faint);font-size:12px;font-family:ui-monospace,Menlo,monospace}
 <p class="sub">What the law says today, what the corpus holds, and every check the agent ran before changing anything.</p>
 
 <div class="stats">
-  <div class="stat"><b>30,312</b><span>chunks held</span></div>
+  <div class="stat"><b>15,948</b><span>chunks held</span></div>
   <div class="stat"><b>28</b><span>documents tracked</span></div>
   <div class="stat"><b>3</b><span>jurisdictions</span></div>
-  <div class="stat"><b style="color:var(--bad)">1</b><span>need update</span></div>
+  <div class="stat"><b style="color:inherit">0</b><span>need update</span></div>
   <div class="stat"><b style="color:var(--bad)">1</b><span>review overdue</span></div>
   <div class="stat"><b style="color:var(--bad)">1</b><span>checks failed</span></div>
 </div>
@@ -78,8 +78,8 @@ color:var(--faint);font-size:12px;font-family:ui-monospace,Menlo,monospace}
 <thead><tr><th>Regime</th><th>Documents</th><th>Chunks</th><th>Freshness</th></tr></thead>
 <tbody>
   <tr><td><span class="jur">EAR_US</span></td><td class="num">14</td>
-      <td class="num">26,383</td>
-      <td><span class="tick bad">1 need attention</span></td></tr>
+      <td class="num">12,019</td>
+      <td><span class="tick ok">all current</span></td></tr>
   <tr><td><span class="jur">SCOMET_INDIA</span></td><td class="num">3</td>
       <td class="num">2,149</td>
       <td><span class="tick bad">1 need attention</span></td></tr>
@@ -110,12 +110,12 @@ color:var(--faint);font-size:12px;font-family:ui-monospace,Menlo,monospace}
     </td>
     <td><span class="jur">EAR_US</span><div class="cite">ecfr</div></td>
     <td class="num">24 Aug 2026</td>
-    <td class="num">05 Mar 2026</td>
-    <td class="num">27 Aug 2026, 21:03</td>
-    <td><span class="tick bad">UPDATE NEEDED</span></td>
-    <td class="num">17,734</td>
+    <td class="num">24 Aug 2026</td>
+    <td class="num">30 Aug 2026, 08:52</td>
+    <td><span class="tick ok">UP TO DATE</span></td>
+    <td class="num">3,370</td>
   </tr>
-  <tr class="reason-row"><td colspan="7"><span class="rlabel">Why:</span> eCFR published an amendment on 24 Aug 2026; the corpus holds 05 Mar 2026. The corpus is 172 days behind the law.</td></tr>
+  <tr class="reason-row"><td colspan="7"><span class="rlabel">Why:</span> The most recent amendment eCFR has published is 24 Aug 2026, and that is exactly the version held. There is nothing newer to ingest.</td></tr>
   <tr>
     <td>
       <a href="https://www.federalregister.gov/documents/2025/01/15/2025-00636/framework-for-artificial-intelligence-diffusion" target="_blank" rel="noopener" class="doclink">BIS_InterimRule_Jan2025</a>
@@ -496,8 +496,86 @@ color:var(--faint);font-size:12px;font-family:ui-monospace,Menlo,monospace}
   <tr class="reason-row"><td colspan="7"><span class="rlabel">Why:</span> DGFT (Directorate General of Foreign Trade) offers no API, so freshness cannot be established automatically. Last confirmed null days ago against a 30-day cadence — a human needs to check the source now.</td></tr></tbody></table></div>
 
 <h2>Run history</h2>
-<p class="h2note">403 checks recorded across 100 runs.</p>
+<p class="h2note">415 checks recorded across 100 runs.</p>
 
+  <details class="run">
+    <summary>
+      <span class="doc">BIS_Entity_List_Part744</span><span class="pill ok">ingested</span>
+      <span class="ver">05 Mar 2026 &rarr; 24 Aug 2026</span>
+      <span class="counts">17734 &rarr; 3370 chunks</span>
+      <span class="checks">12 pass</span>
+      <span class="when">30 Aug 2026, 08:52</span>
+    </summary>
+    <div class="body">
+      <p class="route"><b>Executed by:</b> worker_direct &middot; 498.1s<br><span class="why">Estimated up to 8000 chunks, above the 300-chunk inline limit. n8n Cloud stalls on sustained vector inserts, so bulk work runs on the worker.</span></p>
+      <p class="summary">Re-ingested from eCFR. 4 substantive section change(s).</p>
+      
+      
+      <div class="tblwrap"><table>
+        <thead><tr><th></th><th>Check</th><th>Expected</th><th>Actual</th><th>Why it matters</th></tr></thead>
+        <tbody>
+      <tr class="c-pass">
+        <td><span class="tick ok">PASS</span></td>
+        <td>change source reachable</td><td class="num">eCFR responds</td><td class="num">responded</td>
+        <td class="detail"></td>
+      </tr>
+      <tr class="c-pass">
+        <td><span class="tick ok">PASS</span></td>
+        <td>version comparison completed</td><td class="num">held vs published resolved</td><td class="num">2026-03-05 vs 2026-08-24</td>
+        <td class="detail">Both versions must resolve before any decision can be trusted.</td>
+      </tr>
+      <tr class="c-pass">
+        <td><span class="tick ok">PASS</span></td>
+        <td>newer version available</td><td class="num">newer, or confirmed up to date</td><td class="num">newer: 2026-08-24</td>
+        <td class="detail"></td>
+      </tr>
+      <tr class="c-pass">
+        <td><span class="tick ok">PASS</span></td>
+        <td>change is substantive</td><td class="num">substantive, or correctly skipped</td><td class="num">4 substantive of 5 amended</td>
+        <td class="detail">eCFR flags each section version substantive or not. Editorial-only amendments are recorded and skipped rather than re-embedded, which avoids churning the vector store under answers that were already correct.</td>
+      </tr>
+      <tr class="c-pass">
+        <td><span class="tick ok">PASS</span></td>
+        <td>source document retrieved</td><td class="num">&gt;0 bytes</td><td class="num">2.13 MB</td>
+        <td class="detail"></td>
+      </tr>
+      <tr class="c-pass">
+        <td><span class="tick ok">PASS</span></td>
+        <td>chunk count within band</td><td class="num">1500-8000</td><td class="num">3370</td>
+        <td class="detail"></td>
+      </tr>
+      <tr class="c-pass">
+        <td><span class="tick ok">PASS</span></td>
+        <td>partial-run residue cleared</td><td class="num">0 rows at target version</td><td class="num">3370 removed</td>
+        <td class="detail"></td>
+      </tr>
+      <tr class="c-pass">
+        <td><span class="tick ok">PASS</span></td>
+        <td>embeddings generated</td><td class="num">3370</td><td class="num">3370</td>
+        <td class="detail"></td>
+      </tr>
+      <tr class="c-pass">
+        <td><span class="tick ok">PASS</span></td>
+        <td>embedding dimensions</td><td class="num">768</td><td class="num">768</td>
+        <td class="detail">Must match the vector(768) column and the rest of the corpus.</td>
+      </tr>
+      <tr class="c-pass">
+        <td><span class="tick ok">PASS</span></td>
+        <td>rows submitted</td><td class="num">3370</td><td class="num">3370</td>
+        <td class="detail"></td>
+      </tr>
+      <tr class="c-pass">
+        <td><span class="tick ok">PASS</span></td>
+        <td>rows verified in database</td><td class="num">3370</td><td class="num">3370</td>
+        <td class="detail"></td>
+      </tr>
+      <tr class="c-pass">
+        <td><span class="tick ok">PASS</span></td>
+        <td>superseded version retired</td><td class="num">3370 rows remain</td><td class="num">3370 remain</td>
+        <td class="detail">Removed 17734 row(s) of the previous version, only after the new one verified.</td>
+      </tr></tbody></table></div>
+    </div>
+  </details>
   <details class="run">
     <summary>
       <span class="doc">ITAR_Violations_Part127</span><span class="pill muted">no_change</span>
@@ -4227,23 +4305,7 @@ color:var(--faint);font-size:12px;font-family:ui-monospace,Menlo,monospace}
       <p class="muted">No checks recorded — this run predates check recording.</p>
     </div>
   </details>
-  <details class="run">
-    <summary>
-      <span class="doc">EAR_CCL_Part736</span><span class="pill muted">no_change</span>
-      <span class="ver">16 Jul 2026 &rarr; 16 Jul 2026</span>
-      <span class="counts">91 &rarr; 91 chunks</span>
-      <span class="checks">0 pass</span>
-      <span class="when">29 Aug 2026, 13:02</span>
-    </summary>
-    <div class="body">
-      
-      <p class="summary">No amendment newer than the held copy.</p>
-      
-      
-      <p class="muted">No checks recorded — this run predates check recording.</p>
-    </div>
-  </details>
 
-<footer>Generated 30/08/2026, 07:51:41 from corpus_registry, ingestion_runs and a live eCFR check.<br>
+<footer>Generated 30/08/2026, 08:52:47 from corpus_registry, ingestion_runs and a live eCFR check.<br>
 Glosilex Regulatory Corpus Sentinel.</footer>
 </div></body></html>
