@@ -4,14 +4,26 @@ import { getSupabase } from './supabase';
 export async function detectJurisdiction(queryText: string): Promise<string[]> {
   const scomet_keywords = ['scomet', 'dgft', 'ftdr', 'category 7', 'category 1', 'category 2', 'mea india'];
   const ear_keywords = ['ear', 'bis', 'eccn', 'ear99', 'ccl', 'entity list', 'chips act', 'bureau of industry', 'us export'];
+  const itar_keywords = ['itar', 'usml', 'ddtc', 'munitions', 'defense article', 'defence article',
+                         'technical data', 'commodity jurisdiction', 'state department', 'brokering',
+                         'defense service', 'defence service', 'taa', 'manufacturing license agreement'];
   const lower = queryText.toLowerCase();
-  
+
   const hasScomet = scomet_keywords.some(k => lower.includes(k));
   const hasEar = ear_keywords.some(k => lower.includes(k));
+  const hasItar = itar_keywords.some(k => lower.includes(k));
 
-  if (hasScomet && !hasEar) return ['SCOMET_INDIA'];
-  if (hasEar && !hasScomet) return ['EAR_US'];
-  return ['SCOMET_INDIA', 'EAR_US'];
+  const matched: string[] = [];
+  if (hasScomet) matched.push('SCOMET_INDIA');
+  if (hasEar) matched.push('EAR_US');
+  if (hasItar) matched.push('ITAR_US');
+
+  // ITAR is deliberately NOT in the fallback. It is a narrow regime covering
+  // defense articles, and pulling 1,780 munitions-list chunks into an ordinary
+  // dual-use question would crowd out the EAR and SCOMET text that actually
+  // answers it. It joins the search only when the question asks for it, or the
+  // user ticks it explicitly.
+  return matched.length ? matched : ['SCOMET_INDIA', 'EAR_US'];
 }
 
 export async function retrieveChunks(queryText: string, jurisdictions: string[], topK = 5) {

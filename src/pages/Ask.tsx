@@ -247,8 +247,15 @@ export const Ask: React.FC = () => {
       ]);
       setCurrentStep(0);
 
+      // Route automatically only while the user is on the default corridor. The
+      // moment they tick or untick anything they have expressed an intent, and
+      // silently overriding it would be worse than a slightly broader search.
       let targetJurisdictions = selectedJurisdictions;
-      if (targetJurisdictions.length === 2) {
+      const isDefaultScope =
+        selectedJurisdictions.length === 2 &&
+        selectedJurisdictions.includes('SCOMET_INDIA') &&
+        selectedJurisdictions.includes('EAR_US');
+      if (isDefaultScope) {
         targetJurisdictions = await detectJurisdiction(userQuery);
       }
 
@@ -312,6 +319,7 @@ export const Ask: React.FC = () => {
       const activeJurisdictions = new Set<string>();
       if (/SCOMET/i.test(section3Text) || /SCOMET/i.test(finalAnswer)) activeJurisdictions.add('SCOMET_INDIA');
       if (/EAR/i.test(section3Text) || dualFlag) activeJurisdictions.add('EAR_US');
+      if (/ITAR|USML|DDTC|munitions/i.test(section3Text)) activeJurisdictions.add('ITAR_US');
       if (/\bEU\b|European Union/i.test(section3Text)) activeJurisdictions.add('EU_DUAL_USE');
       const orderedJurisdictions = Array.from(activeJurisdictions).sort((a, b) => {
         if (a === 'SCOMET_INDIA') return -1;
@@ -644,6 +652,13 @@ export const Ask: React.FC = () => {
                 onChange={() => toggleJurisdiction('EAR_US')}
                 flag="🇺🇸"
                 label="US EAR / BIS"
+              />
+              <JurisdictionToggle
+                id="askItar"
+                checked={selectedJurisdictions.includes('ITAR_US')}
+                onChange={() => toggleJurisdiction('ITAR_US')}
+                flag="🇺🇸"
+                label="US ITAR / USML"
               />
             </div>
           </SideSection>
