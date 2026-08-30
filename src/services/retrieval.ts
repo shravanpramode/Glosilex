@@ -62,6 +62,46 @@ export async function retrieveChunks(queryText: string, jurisdictions: string[],
   return chunks;
 }
 
+/**
+ * Retrieve separately for each jurisdiction, then merge.
+ *
+ * A single pooled call asks hybrid_search for the global top-K across every
+ * selected regime, so the regimes compete for the same slots. Observed on
+ * "What is a defense article under the USML?":
+ *
+ *   ITAR only  -> 12 ITAR chunks -> a full, well-cited definition
+ *   all three  -> 12 chunks split across SCOMET, EAR and ITAR
+ *                 -> "I cannot find sufficient information"
+ *
+ * Selecting MORE jurisdictions produced a WORSE answer, which is the opposite
+ * of what the toggle appears to promise. Giving each regime its own budget
+ * fixes that: adding a jurisdiction can now only add context, never displace
+ * it. This is how the Classify module has always worked.
+ */
+export async function retrievePerJurisdiction(
+  queryText: string,
+  jurisdictions: string[],
+  perJurisdiction?: number
+) {
+  if (jurisdictions.length <= 1) {
+    return retrieveChunks(queryText, jurisdictions, perJurisdiction ?? 12);
+  }
+  const budget = perJurisdiction ?? 8;
+  const results = await Promise.all(
+    jurisdictions.map(j =>
+      retrieveChunks(queryText, [j], budget).catch(() => [] as any[])
+    )
+  );
+  const merged = results.flat();
+  if (merged.length === 0) {
+    throw new Error(
+      'Retrieved 0 regulatory chunks for jurisdictions [' + jurisdictions.join(', ') + ']. ' +
+      'Refusing to answer without grounding.'
+    );
+  }
+  return merged;
+}
+
 export function formatRetrievedContext(chunks: any[]): string {
   return chunks.map((chunk, i) => 
     `[RETRIEVED CHUNK ${i+1}]\n` +

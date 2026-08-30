@@ -9,7 +9,7 @@ import {
   Database, Layers, Activity, AlertTriangle,
   Search, Scale, FileWarning, RefreshCw, Users, BookMarked
 } from 'lucide-react';
-import { detectJurisdiction, retrieveChunks } from '../services/retrieval';
+import { detectJurisdiction, retrieveChunks, retrievePerJurisdiction } from '../services/retrieval';
 import { generateHypotheticalDoc } from '../lib/hyde';
 import { saveSession } from '../utils/session';
 import { getSupabase, getUserId } from '../services/supabase';
@@ -289,7 +289,7 @@ export const Ask: React.FC = () => {
         const hydeDoc = await generateHypotheticalDoc(
           `Export control regulatory answer for: ${enrichedQuery}`
         );
-        finalChunks = await retrieveChunks(hydeDoc, targetJurisdictions, 12);
+        finalChunks = await retrievePerJurisdiction(hydeDoc, targetJurisdictions);
         setCurrentStep(2);
         const formattedContext = finalChunks
           .map((c: any) => `[Source: ${c.document_name} | Section: ${c.section} | Clause: ${c.clause_id}]\n${c.content}`)
@@ -307,8 +307,17 @@ export const Ask: React.FC = () => {
       }
 
       setRetryStatus(null);
-      const riskMatch = finalAnswer.match(/(🔴 HIGH RISK|🟠 MEDIUM RISK|🟢 LOW RISK)/);
-      const confMatch = finalAnswer.match(/Confidence:\s*(\d+%?\s*—\s*(HIGH|MEDIUM|LOW))/i);
+      // Read the rating from the RISK RATING section, not from the first emoji
+      // anywhere in the answer. A rationale sentence earlier in the text can
+      // mention a different level, and the badge then contradicts the section
+      // it claims to summarise — which is exactly what a compliance user would
+      // screenshot and lose trust over.
+      const riskSection =
+        finalAnswer.match(/5\.\s*RISK RATING[\s\S]{0,400}/i)?.[0] ?? finalAnswer;
+      const riskMatch = riskSection.match(/(🔴 HIGH RISK|🟠 MEDIUM RISK|🟢 LOW RISK)/)
+        ?? finalAnswer.match(/(🔴 HIGH RISK|🟠 MEDIUM RISK|🟢 LOW RISK)/);
+      const confMatch = riskSection.match(/Confidence:\s*(\d+%?\s*—\s*(HIGH|MEDIUM|LOW))/i)
+        ?? finalAnswer.match(/Confidence:\s*(\d+%?\s*—\s*(HIGH|MEDIUM|LOW))/i);
       const dualFlag =
         /⚠️\s*[*#\s"']*Dual Jurisdiction Alert/i.test(finalAnswer) &&
         !/Dual Jurisdiction Alert[*#\s"':]*[\s\n]*Not applicable/i.test(finalAnswer);
