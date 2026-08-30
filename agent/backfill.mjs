@@ -423,7 +423,8 @@ Glosilex backfill — ${registry.length} document(s)${DRY ? '  [DRY RUN]' : ''}`
         console.log('    static document — immutable, nothing to check');
         summary.push([reg.document_name, 'static', reg.chunk_count, ck.tally()]);
       } else {
-        const overdue = reg.review_cadence_days && days !== null && days > reg.review_cadence_days;
+        // Never reviewed is the worst case, not a pass.
+        const overdue = !!reg.review_cadence_days && (days === null || days > reg.review_cadence_days);
         ck.add('manual review within cadence',
                `<= ${reg.review_cadence_days ?? '?'} days`,
                days === null ? 'never reviewed' : `${days} days ago`,

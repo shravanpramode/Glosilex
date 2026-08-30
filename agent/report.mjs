@@ -106,7 +106,8 @@ function assess(r) {
   if (r.source_type === 'manual' || r.source_type === 'internal') {
     const since = daysSince(r.last_reviewed_at || r.last_ingested_at);
     const cadence = r.review_cadence_days;
-    const overdue = cadence && since !== null && since > cadence;
+    // Never reviewed is the worst case, not a pass.
+    const overdue = !!cadence && (since === null || since > cadence);
     return {
       published: 'human check required',
       publishedRaw: null,
