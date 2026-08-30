@@ -142,6 +142,37 @@ async function req(url, opts = {}, { tries = 5, waitMs = 5000, maxWaitMs = 12000
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
+
+/**
+ * Delete rows matching a PostgREST filter, in slices.
+ *
+ * A single DELETE spanning ~18,000 rows has to update the pgvector index for
+ * every one of them inside one request. That exceeded the timeout on the
+ * GitHub runner: the rows were inserted, the delete never finished, and
+ * because the worker died mid-step it never wrote an audit row either — so a
+ * corpus holding TWO versions of the Entity List looked like a clean run.
+ *
+ * Paging keeps each request small, reports progress, and can be interrupted
+ * safely: a partial retire leaves fewer superseded rows, never fewer good ones.
+ */
+async function deleteWhere(filter, label = 'delete') {
+  let removed = 0;
+  for (;;) {
+    const page = await req(
+      `${SB}/rest/v1/regulatory_chunks?select=id&${filter}&limit=500`,
+      { headers: H }, { tries: 4, waitMs: 5000, label: label + ' scan' });
+    const ids = (await page.json()).map(r => r.id);
+    if (!ids.length) break;
+
+    await req(`${SB}/rest/v1/regulatory_chunks?id=in.(${ids.join(',')})`,
+      { method: 'DELETE', headers: HMIN }, { tries: 4, waitMs: 5000, label });
+    removed += ids.length;
+    process.stdout.write(`    ${label}: removed ${removed} row(s)   `);
+  }
+  if (removed) console.log('');
+  return removed;
+}
+
 // ---------------------------------------------------------------------------
 // Chunking — byte-identical to the n8n Parse and Chunk node and to ingest.js.
 // Any drift here silently degrades retrieval on re-ingested documents only,
@@ -314,8 +345,9 @@ async function ingest(reg, d, ck) {
   const stale = await countChunks(reg.document_name, d.latest);
   if (stale > 0) {
     console.log(`    clearing ${stale} row(s) from a previous partial attempt`);
-    await req(`${SB}/rest/v1/regulatory_chunks?document_name=eq.${reg.document_name}&metadata->>amendment_date=eq.${d.latest}`,
-      { method: 'DELETE', headers: HMIN }, { label: 'clear partial' });
+    await deleteWhere(
+      `document_name=eq.${reg.document_name}&metadata->>amendment_date=eq.${d.latest}`,
+      'clearing partial run');
   }
   ck.add('partial-run residue cleared', '0 rows at target version', `${stale} removed`, true);
 
@@ -357,8 +389,9 @@ async function ingest(reg, d, ck) {
   }
 
   const before = await countChunks(reg.document_name, null) - verified;
-  await req(`${SB}/rest/v1/regulatory_chunks?document_name=eq.${reg.document_name}&or=(metadata->>amendment_date.is.null,metadata->>amendment_date.neq.${d.latest})`,
-    { method: 'DELETE', headers: HMIN }, { label: 'retire' });
+  await deleteWhere(
+    `document_name=eq.${reg.document_name}&or=(metadata->>amendment_date.is.null,metadata->>amendment_date.neq.${d.latest})`,
+    'retiring superseded rows');
   const remaining = await countChunks(reg.document_name, null);
   ck.add('superseded version retired', `${verified} rows remain`, `${remaining} remain`, remaining === verified,
          `Removed ${before} row(s) of the previous version, only after the new one verified.`);
@@ -544,8 +577,31 @@ Glosilex backfill — ${registry.length} document(s)${DRY ? '  [DRY RUN]' : ''}`
       }
       summary.push([reg.document_name, result.outcome, result.chunks_after, ck.tally()]);
     } catch (e) {
-      console.log('    ERROR:', String(e.message || e).slice(0, 300));
-      ck.add('run completed', 'no exception', String(e.message || e).slice(0, 120), false);
+      const msg = String(e.message || e).slice(0, 500);
+      console.log('    ERROR:', msg.slice(0, 300));
+      ck.add('run completed', 'no exception', msg.slice(0, 120), false);
+
+      // Write the failure down. Previously the catch only printed and moved on,
+      // so a document that died mid-ingest left NO row in ingestion_runs — the
+      // Entity List ended up holding two versions at once and the audit trail
+      // showed nothing wrong. A monitoring system that cannot record its own
+      // failures is the one failure mode that matters most.
+      if (!DRY) {
+        try {
+          await req(`${SB}/rest/v1/ingestion_runs`, { method: 'POST', headers: HMIN,
+            body: JSON.stringify({
+              document_name: reg.document_name, jurisdiction: reg.jurisdiction,
+              outcome: 'error', previous_amendment: reg.last_ingested_amendment,
+              chunks_before: reg.chunk_count, chunks_after: null, severity: 'critical',
+              change_summary: 'Run failed before completion. The corpus may hold both the old and new version of this document — check before relying on it.',
+              error_detail: msg, route: 'worker_direct',
+              route_reason: 'Failed mid-run; see error_detail.',
+              checks: ck.list, duration_ms: ck.elapsed,
+            }) }, { tries: 2, label: 'error audit' });
+        } catch {
+          console.log('    (could not record the failure — check ingestion_runs schema)');
+        }
+      }
       summary.push([reg.document_name, 'error', null, ck.tally()]);
     }
     console.log('');
