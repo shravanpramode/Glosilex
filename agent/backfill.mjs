@@ -116,8 +116,8 @@ const ONLY = argVal('--doc');
 // HTTP with retry — transient failures are the norm against both eCFR and
 // Supabase, and a backfill that dies on the first blip is worthless.
 // ---------------------------------------------------------------------------
-async function req(url, opts = {}, { tries = 5, waitMs = 5000, label = '' } = {}) {
-  let last;
+async function req(url, opts = {}, { tries = 5, waitMs = 5000, maxWaitMs = 120000, label = '' } = {}) {
+  let last, wait = waitMs;
   for (let a = 1; a <= tries; a++) {
     try {
       const r = await fetch(url, { ...opts, signal: AbortSignal.timeout(180000) });
@@ -128,8 +128,13 @@ async function req(url, opts = {}, { tries = 5, waitMs = 5000, label = '' } = {}
       last = e;
     }
     if (a < tries) {
-      process.stdout.write(`    ${label} attempt ${a} failed, waiting ${waitMs / 1000}s\n`);
-      await new Promise(r => setTimeout(r, waitMs));
+      // Exponential backoff, capped. eCFR's bad patches routinely outlast a
+      // fixed 30s x 5, and hammering a struggling service every 30 seconds does
+      // not help it recover. Doubling reaches roughly seven minutes of patience
+      // across the default attempts while making far fewer requests.
+      process.stdout.write(`    ${label} attempt ${a}/${tries} failed, waiting ${Math.round(wait / 1000)}s` + String.fromCharCode(10));
+      await new Promise(r => setTimeout(r, wait));
+      wait = Math.min(wait * 2, maxWaitMs);
     }
   }
   throw last;
@@ -264,7 +269,7 @@ async function ingest(reg, d, ck) {
             + (reg.cfr_appendix ? `&appendix=${encodeURIComponent(reg.cfr_appendix)}` : '');
 
   process.stdout.write('    fetching eCFR ... ');
-  const xml = await (await req(url, {}, { tries: 5, waitMs: 30000, label: 'eCFR full' })).text();
+  const xml = await (await req(url, {}, { tries: 7, waitMs: 15000, maxWaitMs: 120000, label: 'eCFR full' })).text();
   console.log(`${(xml.length / 1048576).toFixed(2)} MB`);
   ck.add('source document retrieved', '>0 bytes', `${(xml.length / 1048576).toFixed(2)} MB`, xml.length > 0);
 
@@ -414,6 +419,21 @@ Glosilex backfill — ${registry.length} document(s)${DRY ? '  [DRY RUN]' : ''}`
     // looked at. SCOMET has no versioned API; a 1992 statute and a published
     // Federal Register rule cannot change at all. Say so, record it, move on.
     if (reg.source_type && reg.source_type !== 'ecfr') {
+      // These documents are never re-ingested here, so their registry count can
+      // drift from reality — Country_Risk_Reference was registered after the
+      // one-off backfill ran and sat at 0 while holding 9 chunks. A count the
+      // report shows must be a count that is true, so reconcile it every run.
+      const actual = await countChunks(reg.document_name, null);
+      if (actual !== reg.chunk_count && !DRY) {
+        await req(`${SB}/rest/v1/corpus_registry?document_name=eq.${reg.document_name}`,
+          { method: 'PATCH', headers: HMIN, body: JSON.stringify({ chunk_count: actual }) },
+          { tries: 2, label: 'count sync' });
+        console.log(`    reconciled chunk count: registry said ${reg.chunk_count}, table holds ${actual}`);
+        reg.chunk_count = actual;
+      }
+      ck.add('registry count matches table', actual, reg.chunk_count, true,
+             'The number the report shows must be the number the corpus actually holds.');
+
       const since = reg.last_reviewed_at || reg.last_ingested_at;
       const days = since ? Math.floor((Date.now() - new Date(since).getTime()) / 86400000) : null;
 
