@@ -103,16 +103,20 @@ function assess(r) {
     };
   }
 
-  if (r.source_type === 'manual') {
+  if (r.source_type === 'manual' || r.source_type === 'internal') {
     const since = daysSince(r.last_reviewed_at || r.last_ingested_at);
     const cadence = r.review_cadence_days;
     const overdue = cadence && since !== null && since > cadence;
     return {
       published: 'human check required',
       publishedRaw: null,
-      status: overdue ? 'REVIEW OVERDUE' : 'REVIEW CURRENT',
-      cls: overdue ? 'bad' : 'ok',
-      reason: overdue
+      status: r.source_type === 'internal'
+        ? (overdue ? 'DERIVED · STALE' : 'DERIVED')
+        : (overdue ? 'REVIEW OVERDUE' : 'REVIEW CURRENT'),
+      cls: overdue ? 'bad' : (r.source_type === 'internal' ? 'warn' : 'ok'),
+      reason: r.source_type === 'internal'
+        ? `Derived document, not a primary source — written in-house from other regulations, so it does not update when they do. Last revised ${since === null ? 'unknown' : since + ' days ago'}${overdue ? `, past its ${cadence}-day review` : `, within its ${cadence}-day review`}. Retrieval cannot distinguish this from an official text, so a stale entry here is cited with the same confidence as the law.`
+        : overdue
         ? `${r.publisher || 'The publisher'} offers no API, so freshness cannot be established automatically. Last confirmed ${since} days ago against a ${cadence}-day cadence — a human needs to check the source now.`
         : `${r.publisher || 'The publisher'} offers no API. Last confirmed ${since === null ? 'never' : since + ' days'} ago, within the ${cadence}-day review cadence. Nothing automated can improve on this; the check is deliberately human.`,
     };
