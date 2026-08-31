@@ -29,7 +29,8 @@
 15. [Roadmap / Known TODOs](#15-roadmap--known-todos)
 16. [Contributing](#16-contributing)
 17. [Final Bug & Issue Verification Status](#17-final-bug--issue-verification-status)
-18. [License](#18-license)
+18. [The Corpus Sentinel Agent](#18-the-corpus-sentinel-agent)
+19. [License](#19-license)
 
 ---
 
@@ -275,7 +276,26 @@ Glosilex/
 ├── readme-vague.md               # Early draft (superseded)
 ├── reports.sql                   # Table: shareable compliance reports
 ├── security.md                   # Security notes
-├── supabase_security.sql         # RLS policies for all 8 tables
+├── supabase_security.sql         # SUPERSEDED — do not run (see v2)
+├── supabase_security_v2.sql      # RLS policies, corrected Aug 2026
+├── verify_fix.sql                # Post-deploy verification (5 PASS/FAIL checks)
+├── agent/                        # Corpus Sentinel — see section 18
+│   ├── README.md                 # Agent setup and n8n wiring
+│   ├── glosilex-corpus-sentinel.json   # Importable n8n workflow (31 nodes)
+│   ├── backfill.mjs              # The worker: fetch, chunk, embed, verify, swap
+│   ├── report.mjs                # Corpus freshness report generator
+│   ├── schema.sql                # corpus_registry + ingestion_runs
+│   ├── expand-corpus.sql         # ITAR + the four missing EAR parts
+│   ├── migration-appendix.sql    # eCFR supplement support (Entity List)
+│   ├── migration-routing.sql     # route / checks / duration columns
+│   ├── migration-full-coverage.sql     # register SCOMET and static documents
+│   ├── migration-tool-signature.sql    # past_classifications tool signature
+│   ├── migration-internal-reference.sql # register the derived country table
+│   ├── run-waves.sql             # Quota-safe ingestion waves
+│   ├── demo-reset.sql            # Replay a run for recording
+│   └── reclaim-space.sql         # VACUUM FULL after a large refresh
+├── .github/workflows/
+│   └── corpus-sentinel.yml       # Cloud worker: dispatch, manual, daily cron
 ├── test_env.js                   # Environment variable diagnostic tool
 ├── tsconfig.json                 # TypeScript config (ESNext, bundler resolution)
 ├── vercel.json                   # SPA rewrite rules for Vercel
@@ -665,28 +685,97 @@ $$;
 
 ### Row Level Security (RLS)
 
-Run `supabase_security.sql` in the SQL Editor to enable RLS on all 8 tables and apply appropriate policies.
+> **Corrected August 2026.** The policy matrix previously documented here did
+> not match `supabase_security.sql`, and the SQL is what runs. That mismatch
+> caused a 91-day production outage: every write was rejected and the corpus was
+> invisible to retrieval, while this file said "Anon allowed". The correction is
+> recorded rather than quietly overwritten, because the failure mode is the
+> useful part.
 
-**Policy matrix:**
+Run **`supabase_security_v2.sql`** in the SQL Editor. It supersedes
+`supabase_security.sql`, which must not be used.
+
+**Prerequisite:** Supabase Dashboard -> Authentication -> Sign In / Providers ->
+enable **Anonymous sign-ins**. The app calls `signInAnonymously()` on boot, so
+every visitor gets a real `auth.uid()` with no login screen. Without that
+toggle `auth.uid()` is NULL and the ownership policies below correctly deny
+everything.
+
+**Policy matrix, as actually enforced:**
 
 | Table | INSERT | SELECT | Notes |
 |---|---|---|---|
-| `regulatory_chunks` | Blocked (service role only via ingest.js) | Authenticated users only | Core vector store — never written from client |
-| `classification_results` | Anon allowed | Anon allowed | No user auth yet |
-| `icp_results` | Anon allowed | Anon allowed | No user auth yet |
-| `contract_results` | Anon allowed | Anon allowed | No user auth yet |
-| `reports` | Anon allowed | Anon allowed | Share-token based access |
-| `compliance_sessions` | Anon allowed | Anon allowed | Session persistence |
-| `compliance_reports` | Anon allowed | Anon allowed | Report persistence |
-| `conversations` | Anon allowed | Anon allowed | Legacy — permissive until auth added |
+| `regulatory_chunks` | None (service role only) | `anon` + `authenticated` | Published government text; gating it broke RAG |
+| `classification_results` | Owner (`auth.uid()::text = user_id`) | Owner | Per-visitor isolation via anonymous auth |
+| `icp_results` | Owner | Owner | |
+| `contract_results` | Owner | Owner | |
+| `reports` | Owner | Owner + `get_report_by_token()` RPC | Share links resolve one row via SECURITY DEFINER |
+| `conversations` | Owner | Owner | |
+| `compliance_sessions` | `authenticated` | none | Write-only |
+| `compliance_reports` | `authenticated` | `authenticated` | |
+| `corpus_registry` | Service role only | `anon` + `authenticated` | Agent watchlist; readable for a freshness badge |
+| `ingestion_runs` | Service role only | Service role only | Agent audit trail |
+| `agent_config` | Service role only | Service role only | Tunable thresholds |
 
-> **Auth hardening path:** All result tables currently use permissive policies because Glosilex has no user authentication system yet. Once auth is added, tighten policies to `USING (auth.uid()::text = user_id)`. Comments in `supabase_security.sql` document this path explicitly.
+**Two design notes worth keeping:**
+
+1. `hybrid_search` is now **`SECURITY DEFINER`**. As `SECURITY INVOKER` it
+   inherited the caller's permissions, so restricting `regulatory_chunks`
+   silently returned zero chunks — with no error, because an RLS denial arrives
+   as an empty result set, not an exception. `retrieveChunks()` now throws when
+   it retrieves nothing, so that can never be silent again.
+2. The old share-link policy was `USING (share_token IS NOT NULL)`. Every row
+   has a token, so it exposed **every** report to any anonymous caller. Replaced
+   by `get_report_by_token()`, which returns exactly one row and only to a
+   caller who already holds the unguessable UUID.
 
 ---
-
 ## 7. Regulatory Data Ingestion
 
-`ingest.js` is the Node.js ESM script used to parse, chunk, embed, and insert regulatory PDF/TXT/CSV documents into the `regulatory_chunks` Supabase table. It is an administrative/offline tool — never part of the browser app runtime.
+There are now **two** ingestion paths. Read this before using either.
+
+### The current path: the Corpus Sentinel (recommended)
+
+Since August 2026 the corpus is maintained by an agent rather than by hand. It
+watches for amendments, decides whether they matter, re-ingests only when they
+do, verifies the result before deleting anything, and records every check. See
+**section 19** for the full design and **`agent/README.md`** for setup.
+
+```bash
+node agent/backfill.mjs --list          # show the watchlist
+node agent/backfill.mjs                 # ingest everything currently armed
+node agent/backfill.mjs --pending       # ingest only what n8n delegated
+node agent/report.mjs                   # generate the corpus freshness report
+```
+
+The agent pulls current text directly from the **eCFR versioner API**, so no PDF
+downloading is involved for any US document. It produces chunks byte-identical
+to `ingest.js` on purpose — drift between ingestion paths would degrade
+retrieval only on re-ingested documents, which is the hardest kind of bug to
+notice.
+
+### The legacy path: `ingest.js` (still valid, use with care)
+
+`ingest.js` is the original Node.js ESM script for parsing, chunking, embedding
+and inserting regulatory PDF/TXT/CSV documents. It remains the only way to
+ingest a source with no API — currently the DGFT SCOMET list.
+
+**Three things it does not do**, which the agent does:
+
+1. **It never deletes.** Re-running it on a document already in the corpus
+   produces a second copy rather than an update. Part 730 would become 230
+   chunks holding two versions of the same regulation, and retrieval would cite
+   both as current.
+2. **It never checks whether anything changed.** It ingests whatever file you
+   point it at, unconditionally.
+3. **It leaves no record.** Nothing is written to `ingestion_runs`.
+
+There is also a latent bug worth knowing about: the clause-splitting regex
+builds an alternation for any jurisdiction other than `SCOMET_INDIA` or
+`EAR_US`, and `String.split()` splices capture groups into its output, so the
+non-matching branch yields `undefined` and the loop throws. It never fired
+because the script was only ever run with those two jurisdictions. The agent
+has the same logic with the fix applied.
 
 ### Embedding Contract
 
@@ -899,7 +988,13 @@ npm run dev
 | Type check | `npm run lint` | Runs `tsc --noEmit` — zero TypeScript errors required |
 | Clean | `npm run clean` | Removes `dist/` folder |
 
-### Credentials Modal
+### Credentials Modal (legacy)
+
+> **No longer required.** The app now establishes its own anonymous Supabase
+> session on boot, and the Vercel deployment supplies `VITE_SUPABASE_URL` and
+> `VITE_SUPABASE_ANON_KEY` at build time, so this modal does not appear in
+> production. It remains in the codebase as a local-development fallback and is
+> a candidate for removal.
 
 On first load, the app checks for `VITE_GEMINI_API_KEY` in the environment. If Supabase credentials are not set as environment variables, a **Credentials Modal** appears prompting for the Supabase Project URL and Anon Key. These are stored in `sessionStorage` (not localStorage) for the duration of the browser session.
 
@@ -1130,77 +1225,214 @@ The gap analysis is fundamentally different in nature from the retrieval problem
 
 ### RLS Overview
 
-`supabase_security.sql` is the authoritative security file for the project. It:
-- enables RLS on all 8 tables
-- keeps `regulatory_chunks` protected from normal browser-side writes
-- allows the current no-auth app to function using permissive policies where needed
-- includes comments warning that policies should be tightened once authentication is added
+**`supabase_security_v2.sql`** is the authoritative security file.
+`supabase_security.sql` is superseded and must not be run — its policies
+excluded the `anon` role the app actually uses, which produced a 91-day outage
+where every write was rejected and retrieval returned zero chunks with no error.
+
+The current model:
+- **Anonymous auth.** The app calls `signInAnonymously()` on boot, so every
+  visitor has a real `auth.uid()` and per-visitor row isolation holds — without
+  a login screen. This is why the ownership policies work rather than being
+  disabled.
+- `regulatory_chunks` is **public-read** (`anon` + `authenticated`). It is
+  published government text, not user data, and gating it is what killed RAG.
+- All writes to `regulatory_chunks` are service-role only, from the agent.
+- `hybrid_search` is `SECURITY DEFINER` with a pinned `search_path`.
+- Share links resolve through `get_report_by_token()` rather than a policy that
+  exposed every report to any caller.
 
 ### API Key Exposure
 
-**Safe for client exposure (VITE_ prefix):**
-- `VITE_GEMINI_API_KEY` — technically visible in browser-delivered code
+**`VITE_GEMINI_API_KEY` is visible in the browser bundle.** This is inherent to
+calling Gemini directly from the client — it is not a mistake in the code, and
+rotating the key does not fix it, because the replacement is published on the
+next deploy.
+
+**Current mitigation (in place):** the key is restricted in Google Cloud to the
+HTTP referrer `glosilex.vercel.app/*`, so a copy lifted from the bundle will not
+work from anywhere else.
+
+**Proper fix (not yet implemented):** proxy Gemini through a Vercel serverless
+function so the key stays server-side. The `@google/genai` SDK supports
+`httpOptions.baseUrl`, so this does not require rewriting call sites — only
+repointing the client and adding the function.
+
+**Safe for client exposure:**
 - `VITE_SUPABASE_URL`
-- `VITE_SUPABASE_ANON_KEY` — safe because RLS controls what the anon key can access
+- `VITE_SUPABASE_ANON_KEY` — safe *because* RLS is now correct; it was not safe
+  while the share-token policy exposed every report
 
 **Must remain server/admin-only:**
-- `SUPABASE_SERVICE_ROLE_KEY` — bypasses RLS entirely; never set in Vercel, never commit
-- Node-side `GEMINI_API_KEY` used by `ingest.js` — local admin only
+- `SUPABASE_SERVICE_ROLE_KEY` — bypasses RLS entirely. Lives in GitHub Actions
+  secrets and locally in `.env`. Never in Vercel, never in the browser, never
+  committed.
+- `GEMINI_API_KEY` (unprefixed) — used by the agent and `ingest.js`
 
 ### `.gitignore` Protection
 
-`.gitignore` excludes `.env*` files while explicitly preserving `.env.example` (which contains only placeholders). Never commit real credentials.
+`.gitignore` excludes `.env*` while preserving `.env.example` (placeholders
+only). It also excludes `agent/*.READY.json`, the local convenience copy of the
+n8n workflow with the project id substituted.
 
 ### Current Limitations
 
-- No full user authentication system yet — result tables are intentionally permissive at this stage
-- Browser-side AI calls mean the app depends on client-accessible runtime configuration
-- `ingest.js` is a privileged admin script and must only be run in a trusted local environment
+- No named user accounts. Anonymous auth gives per-browser isolation, not
+  per-person identity, and clearing site data starts a new identity.
+- Gemini is still called from the browser (see mitigation above).
+- `ingest.js` and `agent/backfill.mjs` are privileged and must run only in a
+  trusted environment or GitHub Actions with secrets.
+- **Denied-party screening does not exist.** The Entity List text is in the
+  corpus and answers questions about the list, but semantic search cannot
+  answer "is this exact company listed?" Do not present the product as
+  providing screening.
 
 ---
-
 ## 14. Regulatory Coverage
 
-Currently ingested regulatory documents (stored in Supabase `regulatory_chunks`):
+**28 documents, 15,948 chunks, three regimes.** Maintained by the Corpus
+Sentinel (section 19). This table was generated from `corpus_registry` on
+2026-08-31; for the live position run `node agent/report.mjs`.
 
-| Document | Jurisdiction | Notes |
-|---|---|---|
-| SCOMET Control List (DGFT) | `SCOMET_INDIA` | India's dual-use and munitions control list |
-| EAR Commerce Control List (CCL) | `EAR_US` | US Bureau of Industry and Security ECCN list |
-| EAR Part 730–774 | `EAR_US` | Full EAR regulatory text |
-| SCOMET Policy Circulars | `SCOMET_INDIA` | DGFT notifications and amendments |
+| Document | Regime | Citation | Watch | Version held | Chunks |
+|---|---|---|---|---|---|
+| `SCOMET_List_2025` | SCOMET_INDIA | — | manual | 2025-09-23 | 2,030 |
+| `FTDR_Act_1992` | SCOMET_INDIA | — | static | 1992-08-07 | 110 |
+| `Country_Risk_Reference` | SCOMET_INDIA | — | internal | 2025-09-01 | 9 |
+| `EAR_CCL_Part730` | EAR_US | 15 CFR 730 | ecfr | 2026-07-16 | 99 |
+| `EAR_CCL_Part732` | EAR_US | 15 CFR 732 | ecfr | 2026-07-16 | 153 |
+| `EAR_CCL_Part734` | EAR_US | 15 CFR 734 | ecfr | 2026-03-05 | 325 |
+| `EAR_CCL_Part736` | EAR_US | 15 CFR 736 | ecfr | 2026-07-16 | 91 |
+| `EAR_CCL_Part738` | EAR_US | 15 CFR 738 | ecfr | 2026-03-05 | 244 |
+| `EAR_CCL_Part740` | EAR_US | 15 CFR 740 | ecfr | 2026-08-14 | 844 |
+| `EAR_ControlPolicy_Part742` | EAR_US | 15 CFR 742 | ecfr | 2026-07-23 | 508 |
+| `BIS_Entity_List_Part744` | EAR_US | 15 CFR 744 Supp. 4 | ecfr | 2026-08-24 | 3,370 |
+| `EAR_Embargoes_Part746` | EAR_US | 15 CFR 746 | ecfr | 2026-07-23 | 869 |
+| `EAR_Applications_Part748` | EAR_US | 15 CFR 748 | ecfr | 2026-01-15 | 582 |
+| `EAR_Enforcement_Part764` | EAR_US | 15 CFR 764 | ecfr | 2024-10-17 | 138 |
+| `EAR_CCL_Part774` | EAR_US | 15 CFR 774 | ecfr | 2026-08-18 | 3,779 |
+| `BIS_InterimRule_Jan2025` | EAR_US | — | static | 2025-01-13 | 639 |
+| `CHIPS_Act_Guardrails` | EAR_US | — | static | 2023-09-25 | 378 |
+| `ITAR_Definitions_Part120` | ITAR_US | 22 CFR 120 | ecfr | 2025-07-07 | 200 |
+| `ITAR_USML_Part121` | ITAR_US | 22 CFR 121 | ecfr | 2026-07-23 | 539 |
+| `ITAR_Registration_Part122` | ITAR_US | 22 CFR 122 | ecfr | 2025-01-08 | 39 |
+| `ITAR_Licenses_Part123` | ITAR_US | 22 CFR 123 | ecfr | 2024-09-03 | 150 |
+| `ITAR_Agreements_Part124` | ITAR_US | 22 CFR 124 | ecfr | 2024-09-03 | 108 |
+| `ITAR_TechData_Part125` | ITAR_US | 22 CFR 125 | ecfr | 2022-09-06 | 46 |
+| `ITAR_Policies_Part126` | ITAR_US | 22 CFR 126 | ecfr | 2025-12-30 | 439 |
+| `ITAR_Violations_Part127` | ITAR_US | 22 CFR 127 | ecfr | 2025-01-10 | 71 |
+| `ITAR_Procedures_Part128` | ITAR_US | 22 CFR 128 | ecfr | 2022-09-06 | 61 |
+| `ITAR_Brokering_Part129` | ITAR_US | 22 CFR 129 | ecfr | 2025-01-08 | 75 |
+| `ITAR_Political_Part130` | ITAR_US | 22 CFR 130 | ecfr | 2022-09-06 | 52 |
 
-To add new regulatory documents, run `ingest.js` with the appropriate `--jurisdiction` flag. No code changes are required — retrieval automatically covers any documents in `regulatory_chunks`.
+### Watch methods, and why the distinction matters
+
+- **`ecfr`** — machine-checkable. The agent polls the eCFR versioner API daily.
+- **`manual`** — no API exists. DGFT publishes SCOMET changes as gazette PDFs, so
+  a human must check on a 30-day cadence. Overdue is visible in the report
+  rather than silent. Auto-ingesting a government PDF nobody has read is how a
+  compliance corpus gets quietly corrupted.
+- **`static`** — immutable. A published Federal Register rule never changes after
+  issue; what changes is the CFR that incorporates it, watched separately. A
+  1992 Act of Parliament is the same. Never re-ingest these.
+- **`internal`** — derived in-house, **not a primary source**.
+  `Country_Risk_Reference` was compiled by hand from EAR Part 740 Supplement 1,
+  UN designations and DGFT policy. It does not update when its sources do, and
+  retrieval cannot tell it apart from official text — so a stale entry there is
+  cited with the same confidence as the law. 90-day review cadence.
+
+### Reachability
+
+`ITAR_US` chunks are retrievable only in **Ask Compliance**, via the ITAR toggle
+or automatic routing on ITAR vocabulary. Classify, ICP and Contracts remain
+EAR + SCOMET deliberately: those modules run jurisdiction-specific determination
+chains, and a half-built USML classifier would be worse than none. A commodity
+jurisdiction determination belongs to DDTC, not to Glosilex.
+
+ITAR is also **excluded from the default search**. It is a narrow regime, and
+pulling 1,780 munitions-list chunks into an ordinary dual-use question crowds
+out the text that answers it.
+
+### Known corpus limitations
+
+- **Commerce Country Chart** (Supplement No. 1 to Part 738) is *not* ingested.
+  It is fetchable, but it is a table, and the prose chunker reduces it to rows
+  of context-free `X` marks with the column headers stripped. It needs
+  structured extraction, not chunking.
+- **Denied-party screening is not solved by the corpus.** The Entity List text
+  is present and answers questions *about* the list. It cannot answer "is
+  Company X listed?" — that is exact matching, not semantic similarity.
+- **Every document shrank** when moving from PDFs to eCFR XML, because the PDFs
+  included page furniture and supplements. Part 736 went 106 -> 91 for the same
+  regulation.
+
+### Adding a document
+
+Insert a row into `corpus_registry` with the right `source_type`, then run the
+agent. See `agent/expand-corpus.sql` for worked examples. No code changes are
+required — retrieval covers whatever is in `regulatory_chunks`, subject to the
+jurisdiction filter.
+
+**Blind-spot check:** `SELECT * FROM unregistered_corpus_documents;` must always
+return zero rows. Anything listed is being served to users with nothing
+monitoring it.
 
 ---
-
 ## 15. Roadmap / Known TODOs
 
-### Confirmed Open Items
+### Done since the August 2026 hardening pass
 
-- **License** — not yet declared in the repository
-- **Auth hardening** — `supabase_security.sql` explicitly notes that policies should be tightened once login/auth is added
-- **Phase 2 ICP features** — UI already references Phase 2 / SOP-document enhancements, indicating deeper document-generation workflows are intended
+- RLS corrected; anonymous auth added; retrieval restored
+- Zero-chunk retrieval now throws instead of answering ungrounded
+- Corpus Sentinel agent built (section 19); corpus current across three regimes
+- ITAR ingested and reachable in Ask Compliance
+- Citation whitelist corrected — it had been forbidding 15 of 28 documents
+- Per-jurisdiction retrieval in Ask, so adding a regime cannot displace another
+- Worker hosted on GitHub Actions; report published from CI
 
-### Architecture Roadmap
+### Open — near term
 
-- **Supabase Auth integration** — move from anonymous/permissive access to authenticated per-user isolation; replace permissive policies with `USING (auth.uid()::text = user_id)` across all result tables
-- **Expanded document-generation features** — the platform already generates clause/SOP language; more exportable, auto-assembled compliance documents are the natural next step
-- **Production launch URL and deployment hardening** — finalize launch metadata and operational documentation
-- **Stronger observability / logging** — observability around failed LLM chain steps
-- **Batched ingestion in `ingest.js`** — consider if re-ingestion volume grows significantly
-- **Formal ADR** — architecture decision record for Gemini selection and retrieval strategy
+- **Gemini serverless proxy** so the API key leaves the browser entirely
+- **OFAC SDN branch** for the agent. The Treasury endpoint is live and exposes a
+  `Last-Modified` header, so change detection is straightforward. Marked
+  Critical in the domain gap analysis.
+- **Denied-party screening** as a real feature: a structured table plus
+  trigram/fuzzy matching (`pg_trgm`), not vector search. This is a *different
+  build* from ingesting the list text — see section 14.
+- **Commerce Country Chart** via structured extraction rather than chunking
+- **DGFT/SCOMET watcher** — poll the notifications page, diff it, alert a human;
+  no automatic ingestion of an unread government PDF
+- **ITAR clause-boundary chunking.** ITAR numbers sections differently
+  (`121.1`, `Category VIII(a)`), so ITAR chunks are currently split by length
+  only. Fixing it means re-ingesting all 11 parts together so they stay
+  mutually consistent.
+
+### Open — later
+
+- Per-user authentication with named accounts, replacing anonymous identity
+- ITAR determinations in Classify / ICP / Contracts, with real USML logic
+- EU Dual-Use (EUR-Lex) and UK ECO (legislation.gov.uk) — both automatable
+- Batch classification, BOM-level review
+- Observability on failed LLM chain steps
+
+### Known cosmetic issues
+
+- In Ask answers, `5. RISK RATING & CONFIDENCE` sometimes renders inside the
+  ACTION REQUIRED block rather than as its own section
+- Dead code: `src/services/reports.ts` is never imported; three separate
+  `saveReport` implementations exist
+- Unused dependencies: `better-sqlite3`, `pdf-parse`, `html2canvas`, `jspdf`
+- `CredentialsModal` no longer serves a purpose now that the app creates its own
+  anonymous session
+- Main bundle is ~2 MB; `pdfjs-dist` could be lazy-loaded
 
 ### Running a TODO Audit
-
-To find all inline TODOs in the codebase:
 
 ```bash
 rg -n "TODO|FIXME|XXX" .
 ```
 
 ---
-
 ## 16. Contributing
 
 This is a private production-oriented application. Recommended internal development workflow:
@@ -1246,7 +1478,99 @@ All bugs and issues identified during development and testing have been resolved
 
 ---
 
-## 18. License
+## 18. The Corpus Sentinel Agent
+
+A RAG compliance product is only as trustworthy as the freshness of its corpus.
+Glosilex's corpus was ingested from PDFs dated **2026-03-05**. 15 CFR Part 774 —
+the Commerce Control List, the most load-bearing document in the corpus — was
+amended on **2026-08-18**. Nobody knew, because nothing was watching. The
+Corpus Sentinel closes that gap.
+
+Full setup lives in **`agent/README.md`**. This section covers the design.
+
+### Architecture
+
+```text
+  n8n (cloud)          watches, decides, reports, schedules
+      │                  │
+      │                  ├── no change            -> log and stop
+      │                  ├── editorial only       -> log and skip
+      │                  ├── substantive, small   -> ingest inline
+      │                  └── substantive, large   -> delegate
+      ▼
+  GitHub Actions       executes the heavy work
+      │                  fetch -> chunk -> embed -> insert -> verify -> retire
+      ▼
+  Supabase             stores; publishes the report to docs/
+```
+
+Three services, each doing what it is actually good at. That split was not the
+original design — it was forced by measurement, which is the more useful story.
+
+### What makes it an agent rather than a cron job
+
+1. **It decides whether to act.** eCFR flags each section version as
+   `substantive: true|false`. A cross-reference renumbering is an amendment but
+   not a change in what is legally controlled. Re-embedding 3,779 chunks because
+   BIS fixed a comma costs money and churns the vector store underneath answers
+   that were already right. Editorial changes are logged and skipped.
+2. **It knows its own limits.** Before doing expensive work it counts the chunks
+   and compares against a threshold (300, stored in `agent_config`, empirical —
+   n8n Cloud completed 91 chunks and stalled twice on 2,097). Over the limit it
+   records a delegation with a written reason and stops, rather than starting
+   something it cannot finish.
+3. **It reasons about blast radius.** After ingesting, an AI analyst looks up
+   which classifications Glosilex has already issued that cited a clause which
+   just changed, and grades severity `editorial | material | critical`.
+
+That third step is the product: not "ask an AI about regulations" but *the rule
+you relied on in March changed last week, and here are the three classifications
+it affects.*
+
+### Safety properties
+
+- **Verify before delete.** New chunks are written alongside the old ones and
+  counted against an expected band. Only then are superseded rows retired. The
+  corpus is never empty mid-run.
+- **Idempotent re-runs.** A failed attempt leaves rows tagged with the target
+  amendment date; the next run clears them before inserting, so five runs still
+  leave one copy.
+- **Paged deletes.** Retiring ~18,000 rows in one request exceeded the timeout
+  on the runner. Deletes now page 500 at a time.
+- **Failures are recorded.** An error writes an `ingestion_runs` row with
+  severity `critical`. The worker also exits non-zero, so CI shows red instead
+  of publishing a clean report about a corpus it just failed to update.
+- **Chunking is byte-identical to `ingest.js`.** Drift between ingestion paths
+  would degrade retrieval only on re-ingested documents.
+
+### The audit trail
+
+Every run records what it *verified*, not just what happened — source reachable,
+version comparison, substantive filter, chunk count in band, embeddings
+generated, dimensions correct, rows submitted, rows verified in the database,
+superseded version retired. Each with expected, actual, PASS/FAIL/SKIP and why
+it matters.
+
+`node agent/report.mjs` renders it as standalone HTML, including a live check
+of every eCFR document against the governing body. "The corpus is current" is a
+claim; the checks are the evidence.
+
+### Operating it
+
+```bash
+node agent/backfill.mjs --list       # the watchlist
+node agent/backfill.mjs              # ingest what is armed
+node agent/backfill.mjs --pending    # ingest only what n8n delegated
+node agent/report.mjs                # freshness + audit report
+```
+
+Or from GitHub: **Actions -> Corpus Sentinel Worker -> Run workflow**. It also
+runs daily at 01:00 UTC as a safety net, and on `repository_dispatch` when n8n
+delegates.
+
+---
+
+## 19. License
 
 **[TODO: license not yet decided — not currently declared in repository]**
 
