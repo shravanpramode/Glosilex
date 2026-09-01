@@ -1249,9 +1249,29 @@ calling Gemini directly from the client — it is not a mistake in the code, and
 rotating the key does not fix it, because the replacement is published on the
 next deploy.
 
-**Current mitigation (in place):** the key is restricted in Google Cloud to the
-HTTP referrer `glosilex.vercel.app/*`, so a copy lifted from the bundle will not
-work from anywhere else.
+**Current mitigation (in place):** the browser key is restricted in Google Cloud
+to the HTTP referrer `glosilex.vercel.app/*`, so a copy lifted from the bundle
+will not work from anywhere else.
+
+> **This requires TWO keys, and getting that wrong takes the agent down.**
+>
+> A referrer restriction only makes sense for a key that runs in a browser.
+> Every server-side caller — n8n, GitHub Actions, `agent/backfill.mjs`,
+> `ingest.js` — sends no referrer at all, so a referrer-restricted key returns
+> `403 API_KEY_HTTP_REFERRER_BLOCKED` to all of them. Applying the restriction
+> to the single shared key on 2026-08-31 silently broke the entire ingestion
+> pipeline while the web app carried on working perfectly.
+>
+> | Key | Application restriction | API restriction | Lives in |
+> |---|---|---|---|
+> | **Browser** | HTTP referrer `glosilex.vercel.app/*` | Generative Language API | Vercel, as `VITE_GEMINI_API_KEY` |
+> | **Agent** | **None** — servers send no referrer | Generative Language API | n8n credential, GitHub Actions secret, local `.env`, all as `GEMINI_API_KEY` |
+>
+> The agent key is **server-side only** and belongs in the same category as
+> `SUPABASE_SERVICE_ROLE_KEY`: never in Vercel, never in the browser, never
+> committed. IP restriction is not a usable control for it, because n8n Cloud
+> and GitHub runners have dynamic addresses — the API restriction is what
+> limits the blast radius instead.
 
 **Proper fix (not yet implemented):** proxy Gemini through a Vercel serverless
 function so the key stays server-side. The `@google/genai` SDK supports
