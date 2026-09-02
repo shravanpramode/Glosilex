@@ -64,10 +64,10 @@ color:var(--faint);font-size:12px;font-family:ui-monospace,Menlo,monospace}
 <p class="sub">What the law says today, what the corpus holds, and every check the agent ran before changing anything.</p>
 
 <div class="stats">
-  <div class="stat"><b>15,948</b><span>chunks held</span></div>
+  <div class="stat"><b>15,949</b><span>chunks held</span></div>
   <div class="stat"><b>28</b><span>documents tracked</span></div>
   <div class="stat"><b>3</b><span>jurisdictions</span></div>
-  <div class="stat"><b style="color:var(--bad)">1</b><span>need update</span></div>
+  <div class="stat"><b style="color:inherit">0</b><span>need update</span></div>
   <div class="stat"><b style="color:var(--bad)">1</b><span>review overdue</span></div>
   <div class="stat"><b style="color:var(--bad)">2</b><span>checks failed</span></div>
 </div>
@@ -84,8 +84,8 @@ color:var(--faint);font-size:12px;font-family:ui-monospace,Menlo,monospace}
       <td class="num">2,149</td>
       <td><span class="tick bad">1 need attention</span></td></tr>
   <tr><td><span class="jur">ITAR_US</span></td><td class="num">11</td>
-      <td class="num">1,780</td>
-      <td><span class="tick bad">1 need attention</span></td></tr></tbody></table></div>
+      <td class="num">1,781</td>
+      <td><span class="tick ok">all current</span></td></tr></tbody></table></div>
 
 <h2>Blind-spot check</h2>
 <p class="h2note">Any document present in the corpus but absent from the watchlist is being served to users with nothing monitoring it.</p>
@@ -432,12 +432,12 @@ color:var(--faint);font-size:12px;font-family:ui-monospace,Menlo,monospace}
     </td>
     <td><span class="jur">ITAR_US</span><div class="cite">ecfr</div></td>
     <td class="num">30 Aug 2026</td>
-    <td class="num">23 Jul 2026</td>
-    <td class="num">30 Aug 2026, 04:20</td>
-    <td><span class="tick bad">UPDATE NEEDED</span></td>
-    <td class="num">539</td>
+    <td class="num">30 Aug 2026</td>
+    <td class="num">02 Sept 2026, 08:16</td>
+    <td><span class="tick ok">UP TO DATE</span></td>
+    <td class="num">540</td>
   </tr>
-  <tr class="reason-row"><td colspan="7"><span class="rlabel">Why:</span> eCFR published an amendment on 30 Aug 2026; the corpus holds 23 Jul 2026. The corpus is 38 days behind the law.</td></tr>
+  <tr class="reason-row"><td colspan="7"><span class="rlabel">Why:</span> The most recent amendment eCFR has published is 30 Aug 2026, and that is exactly the version held. There is nothing newer to ingest.</td></tr>
   <tr>
     <td>
       <a href="https://www.ecfr.gov/current/title-22/part-127" target="_blank" rel="noopener" class="doclink">ITAR_Violations_Part127</a>
@@ -496,8 +496,691 @@ color:var(--faint);font-size:12px;font-family:ui-monospace,Menlo,monospace}
   <tr class="reason-row"><td colspan="7"><span class="rlabel">Why:</span> DGFT (Directorate General of Foreign Trade) offers no API, so freshness cannot be established automatically. Last confirmed null days ago against a 30-day cadence — a human needs to check the source now.</td></tr></tbody></table></div>
 
 <h2>Run history</h2>
-<p class="h2note">50 checks recorded across 100 runs.</p>
+<p class="h2note">58 checks recorded across 100 runs.</p>
 
+  <details class="run">
+    <summary>
+      <span class="doc">ITAR_USML_Part121</span><span class="pill ok">ingested</span>
+      <span class="ver">23 Jul 2026 &rarr; 30 Aug 2026</span>
+      <span class="counts">539 &rarr; 540 chunks</span>
+      <span class="checks">12 pass</span>
+      <span class="when">02 Sept 2026, 08:16</span>
+    </summary>
+    <div class="body">
+      <p class="route"><b>Executed by:</b> worker_direct &middot; 58.2s<br><span class="why">Estimated up to 1200 chunks, above the 300-chunk inline limit. n8n Cloud stalls on sustained vector inserts, so bulk work runs on the worker.</span></p>
+      <p class="summary">Re-ingested from eCFR. 3 substantive section change(s).</p>
+      
+      
+      <div class="tblwrap"><table>
+        <thead><tr><th></th><th>Check</th><th>Expected</th><th>Actual</th><th>Why it matters</th></tr></thead>
+        <tbody>
+      <tr class="c-pass">
+        <td><span class="tick ok">PASS</span></td>
+        <td>change source reachable</td><td class="num">eCFR responds</td><td class="num">responded</td>
+        <td class="detail"></td>
+      </tr>
+      <tr class="c-pass">
+        <td><span class="tick ok">PASS</span></td>
+        <td>version comparison completed</td><td class="num">held vs published resolved</td><td class="num">2026-07-23 vs 2026-08-30</td>
+        <td class="detail">Both versions must resolve before any decision can be trusted.</td>
+      </tr>
+      <tr class="c-pass">
+        <td><span class="tick ok">PASS</span></td>
+        <td>newer version available</td><td class="num">newer, or confirmed up to date</td><td class="num">newer: 2026-08-30</td>
+        <td class="detail"></td>
+      </tr>
+      <tr class="c-pass">
+        <td><span class="tick ok">PASS</span></td>
+        <td>change is substantive</td><td class="num">substantive, or correctly skipped</td><td class="num">3 substantive of 3 amended</td>
+        <td class="detail">eCFR flags each section version substantive or not. Editorial-only amendments are recorded and skipped rather than re-embedded, which avoids churning the vector store under answers that were already correct.</td>
+      </tr>
+      <tr class="c-pass">
+        <td><span class="tick ok">PASS</span></td>
+        <td>source document retrieved</td><td class="num">&gt;0 bytes</td><td class="num">0.23 MB</td>
+        <td class="detail"></td>
+      </tr>
+      <tr class="c-pass">
+        <td><span class="tick ok">PASS</span></td>
+        <td>chunk count within band</td><td class="num">260-1200</td><td class="num">540</td>
+        <td class="detail"></td>
+      </tr>
+      <tr class="c-pass">
+        <td><span class="tick ok">PASS</span></td>
+        <td>partial-run residue cleared</td><td class="num">0 rows at target version</td><td class="num">0 removed</td>
+        <td class="detail"></td>
+      </tr>
+      <tr class="c-pass">
+        <td><span class="tick ok">PASS</span></td>
+        <td>embeddings generated</td><td class="num">540</td><td class="num">540</td>
+        <td class="detail"></td>
+      </tr>
+      <tr class="c-pass">
+        <td><span class="tick ok">PASS</span></td>
+        <td>embedding dimensions</td><td class="num">768</td><td class="num">768</td>
+        <td class="detail">Must match the vector(768) column and the rest of the corpus.</td>
+      </tr>
+      <tr class="c-pass">
+        <td><span class="tick ok">PASS</span></td>
+        <td>rows submitted</td><td class="num">540</td><td class="num">540</td>
+        <td class="detail"></td>
+      </tr>
+      <tr class="c-pass">
+        <td><span class="tick ok">PASS</span></td>
+        <td>rows verified in database</td><td class="num">540</td><td class="num">540</td>
+        <td class="detail"></td>
+      </tr>
+      <tr class="c-pass">
+        <td><span class="tick ok">PASS</span></td>
+        <td>superseded version retired</td><td class="num">540 rows remain</td><td class="num">540 remain</td>
+        <td class="detail">Removed 539 row(s) of the previous version, only after the new one verified.</td>
+      </tr></tbody></table></div>
+    </div>
+  </details>
+  <details class="run">
+    <summary>
+      <span class="doc">EAR_CCL_Part774</span><span class="pill muted">no_change</span>
+      <span class="ver">28 Aug 2026 &rarr; 28 Aug 2026</span>
+      <span class="counts">3779 &rarr; 3779 chunks</span>
+      <span class="checks">2 pass &middot; 2 skip</span>
+      <span class="when">02 Sept 2026, 08:15</span>
+    </summary>
+    <div class="body">
+      <p class="route"><b>Executed by:</b> worker_direct &middot; 0.0s<br><span class="why">Estimated up to 9000 chunks, above the 300-chunk inline limit. n8n Cloud stalls on sustained vector inserts, so bulk work runs on the worker.</span></p>
+      <p class="summary">No amendment newer than the held copy.</p>
+      
+      
+      <div class="tblwrap"><table>
+        <thead><tr><th></th><th>Check</th><th>Expected</th><th>Actual</th><th>Why it matters</th></tr></thead>
+        <tbody>
+      <tr class="c-pass">
+        <td><span class="tick ok">PASS</span></td>
+        <td>change source reachable</td><td class="num">eCFR responds</td><td class="num">responded</td>
+        <td class="detail"></td>
+      </tr>
+      <tr class="c-pass">
+        <td><span class="tick ok">PASS</span></td>
+        <td>version comparison completed</td><td class="num">held vs published resolved</td><td class="num">2026-08-28 vs 2026-08-28</td>
+        <td class="detail">Both versions must resolve before any decision can be trusted.</td>
+      </tr>
+      <tr class="c-skip">
+        <td><span class="tick muted">SKIP</span></td>
+        <td>newer version available</td><td class="num">newer, or confirmed up to date</td><td class="num">already current</td>
+        <td class="detail">No amendment newer than the copy held. Nothing to do.</td>
+      </tr>
+      <tr class="c-skip">
+        <td><span class="tick muted">SKIP</span></td>
+        <td>change is substantive</td><td class="num">substantive, or correctly skipped</td><td class="num">0 substantive of 0 amended</td>
+        <td class="detail">eCFR flags each section version substantive or not. Editorial-only amendments are recorded and skipped rather than re-embedded, which avoids churning the vector store under answers that were already correct.</td>
+      </tr></tbody></table></div>
+    </div>
+  </details>
+  <details class="run">
+    <summary>
+      <span class="doc">BIS_Entity_List_Part744</span><span class="pill muted">no_change</span>
+      <span class="ver">24 Aug 2026 &rarr; 24 Aug 2026</span>
+      <span class="counts">3370 &rarr; 3370 chunks</span>
+      <span class="checks">2 pass &middot; 2 skip</span>
+      <span class="when">02 Sept 2026, 08:15</span>
+    </summary>
+    <div class="body">
+      <p class="route"><b>Executed by:</b> worker_direct &middot; 0.1s<br><span class="why">Estimated up to 8000 chunks, above the 300-chunk inline limit. n8n Cloud stalls on sustained vector inserts, so bulk work runs on the worker.</span></p>
+      <p class="summary">No amendment newer than the held copy.</p>
+      
+      
+      <div class="tblwrap"><table>
+        <thead><tr><th></th><th>Check</th><th>Expected</th><th>Actual</th><th>Why it matters</th></tr></thead>
+        <tbody>
+      <tr class="c-pass">
+        <td><span class="tick ok">PASS</span></td>
+        <td>change source reachable</td><td class="num">eCFR responds</td><td class="num">responded</td>
+        <td class="detail"></td>
+      </tr>
+      <tr class="c-pass">
+        <td><span class="tick ok">PASS</span></td>
+        <td>version comparison completed</td><td class="num">held vs published resolved</td><td class="num">2026-08-24 vs 2026-08-24</td>
+        <td class="detail">Both versions must resolve before any decision can be trusted.</td>
+      </tr>
+      <tr class="c-skip">
+        <td><span class="tick muted">SKIP</span></td>
+        <td>newer version available</td><td class="num">newer, or confirmed up to date</td><td class="num">already current</td>
+        <td class="detail">No amendment newer than the copy held. Nothing to do.</td>
+      </tr>
+      <tr class="c-skip">
+        <td><span class="tick muted">SKIP</span></td>
+        <td>change is substantive</td><td class="num">substantive, or correctly skipped</td><td class="num">0 substantive of 0 amended</td>
+        <td class="detail">eCFR flags each section version substantive or not. Editorial-only amendments are recorded and skipped rather than re-embedded, which avoids churning the vector store under answers that were already correct.</td>
+      </tr></tbody></table></div>
+    </div>
+  </details>
+  <details class="run">
+    <summary>
+      <span class="doc">ITAR_Violations_Part127</span><span class="pill muted">no_change</span>
+      <span class="ver">10 Jan 2025 &rarr; 10 Jan 2025</span>
+      <span class="counts">71 &rarr; 71 chunks</span>
+      <span class="checks">0 pass</span>
+      <span class="when">02 Sept 2026, 08:15</span>
+    </summary>
+    <div class="body">
+      
+      <p class="summary">No amendment newer than the held copy.</p>
+      
+      
+      <p class="muted">No checks recorded — this run predates check recording.</p>
+    </div>
+  </details>
+  <details class="run">
+    <summary>
+      <span class="doc">ITAR_Agreements_Part124</span><span class="pill muted">no_change</span>
+      <span class="ver">03 Sept 2024 &rarr; 03 Sept 2024</span>
+      <span class="counts">108 &rarr; 108 chunks</span>
+      <span class="checks">0 pass</span>
+      <span class="when">02 Sept 2026, 08:15</span>
+    </summary>
+    <div class="body">
+      
+      <p class="summary">No amendment newer than the held copy.</p>
+      
+      
+      <p class="muted">No checks recorded — this run predates check recording.</p>
+    </div>
+  </details>
+  <details class="run">
+    <summary>
+      <span class="doc">ITAR_TechData_Part125</span><span class="pill muted">no_change</span>
+      <span class="ver">06 Sept 2022 &rarr; 06 Sept 2022</span>
+      <span class="counts">46 &rarr; 46 chunks</span>
+      <span class="checks">0 pass</span>
+      <span class="when">02 Sept 2026, 08:15</span>
+    </summary>
+    <div class="body">
+      
+      <p class="summary">No amendment newer than the held copy.</p>
+      
+      
+      <p class="muted">No checks recorded — this run predates check recording.</p>
+    </div>
+  </details>
+  <details class="run">
+    <summary>
+      <span class="doc">ITAR_Procedures_Part128</span><span class="pill muted">no_change</span>
+      <span class="ver">06 Sept 2022 &rarr; 06 Sept 2022</span>
+      <span class="counts">61 &rarr; 61 chunks</span>
+      <span class="checks">0 pass</span>
+      <span class="when">02 Sept 2026, 08:15</span>
+    </summary>
+    <div class="body">
+      
+      <p class="summary">No amendment newer than the held copy.</p>
+      
+      
+      <p class="muted">No checks recorded — this run predates check recording.</p>
+    </div>
+  </details>
+  <details class="run">
+    <summary>
+      <span class="doc">ITAR_Policies_Part126</span><span class="pill muted">no_change</span>
+      <span class="ver">30 Dec 2025 &rarr; 30 Dec 2025</span>
+      <span class="counts">439 &rarr; 439 chunks</span>
+      <span class="checks">0 pass</span>
+      <span class="when">02 Sept 2026, 08:15</span>
+    </summary>
+    <div class="body">
+      
+      <p class="summary">No amendment newer than the held copy.</p>
+      
+      
+      <p class="muted">No checks recorded — this run predates check recording.</p>
+    </div>
+  </details>
+  <details class="run">
+    <summary>
+      <span class="doc">ITAR_Licenses_Part123</span><span class="pill muted">no_change</span>
+      <span class="ver">03 Sept 2024 &rarr; —</span>
+      <span class="counts">150 &rarr; 150 chunks</span>
+      <span class="checks">0 pass</span>
+      <span class="when">02 Sept 2026, 08:15</span>
+    </summary>
+    <div class="body">
+      
+      <p class="summary">No amendment newer than the held copy.</p>
+      
+      
+      <p class="muted">No checks recorded — this run predates check recording.</p>
+    </div>
+  </details>
+  <details class="run">
+    <summary>
+      <span class="doc">EAR_CCL_Part732</span><span class="pill muted">no_change</span>
+      <span class="ver">16 Jul 2026 &rarr; —</span>
+      <span class="counts">153 &rarr; 153 chunks</span>
+      <span class="checks">0 pass</span>
+      <span class="when">02 Sept 2026, 08:15</span>
+    </summary>
+    <div class="body">
+      
+      <p class="summary">No amendment newer than the held copy.</p>
+      
+      
+      <p class="muted">No checks recorded — this run predates check recording.</p>
+    </div>
+  </details>
+  <details class="run">
+    <summary>
+      <span class="doc">EAR_CCL_Part738</span><span class="pill muted">no_change</span>
+      <span class="ver">05 Mar 2026 &rarr; 30 Sept 2025</span>
+      <span class="counts">244 &rarr; 244 chunks</span>
+      <span class="checks">0 pass</span>
+      <span class="when">02 Sept 2026, 08:15</span>
+    </summary>
+    <div class="body">
+      
+      <p class="summary">No amendment newer than the held copy.</p>
+      
+      
+      <p class="muted">No checks recorded — this run predates check recording.</p>
+    </div>
+  </details>
+  <details class="run">
+    <summary>
+      <span class="doc">EAR_CCL_Part740</span><span class="pill muted">no_change</span>
+      <span class="ver">14 Aug 2026 &rarr; 14 Aug 2026</span>
+      <span class="counts">844 &rarr; 844 chunks</span>
+      <span class="checks">0 pass</span>
+      <span class="when">02 Sept 2026, 08:15</span>
+    </summary>
+    <div class="body">
+      
+      <p class="summary">No amendment newer than the held copy.</p>
+      
+      
+      <p class="muted">No checks recorded — this run predates check recording.</p>
+    </div>
+  </details>
+  <details class="run">
+    <summary>
+      <span class="doc">EAR_Applications_Part748</span><span class="pill muted">no_change</span>
+      <span class="ver">15 Jan 2026 &rarr; 15 Jan 2026</span>
+      <span class="counts">582 &rarr; 582 chunks</span>
+      <span class="checks">0 pass</span>
+      <span class="when">02 Sept 2026, 08:15</span>
+    </summary>
+    <div class="body">
+      
+      <p class="summary">No amendment newer than the held copy.</p>
+      
+      
+      <p class="muted">No checks recorded — this run predates check recording.</p>
+    </div>
+  </details>
+  <details class="run">
+    <summary>
+      <span class="doc">ITAR_Brokering_Part129</span><span class="pill muted">no_change</span>
+      <span class="ver">08 Jan 2025 &rarr; 08 Jan 2025</span>
+      <span class="counts">75 &rarr; 75 chunks</span>
+      <span class="checks">0 pass</span>
+      <span class="when">02 Sept 2026, 08:15</span>
+    </summary>
+    <div class="body">
+      
+      <p class="summary">No amendment newer than the held copy.</p>
+      
+      
+      <p class="muted">No checks recorded — this run predates check recording.</p>
+    </div>
+  </details>
+  <details class="run">
+    <summary>
+      <span class="doc">EAR_CCL_Part774</span><span class="pill muted">no_change</span>
+      <span class="ver">28 Aug 2026 &rarr; 28 Aug 2026</span>
+      <span class="counts">3779 &rarr; 3779 chunks</span>
+      <span class="checks">0 pass</span>
+      <span class="when">02 Sept 2026, 08:15</span>
+    </summary>
+    <div class="body">
+      
+      <p class="summary">No amendment newer than the held copy.</p>
+      
+      
+      <p class="muted">No checks recorded — this run predates check recording.</p>
+    </div>
+  </details>
+  <details class="run">
+    <summary>
+      <span class="doc">EAR_CCL_Part734</span><span class="pill muted">no_change</span>
+      <span class="ver">05 Mar 2026 &rarr; 12 Nov 2025</span>
+      <span class="counts">325 &rarr; 325 chunks</span>
+      <span class="checks">0 pass</span>
+      <span class="when">02 Sept 2026, 08:15</span>
+    </summary>
+    <div class="body">
+      
+      <p class="summary">No amendment newer than the held copy.</p>
+      
+      
+      <p class="muted">No checks recorded — this run predates check recording.</p>
+    </div>
+  </details>
+  <details class="run">
+    <summary>
+      <span class="doc">BIS_InterimRule_Jan2025</span><span class="pill muted">no_change</span>
+      <span class="ver">13 Jan 2025 &rarr; —</span>
+      <span class="counts">639 &rarr; 639 chunks</span>
+      <span class="checks">0 pass</span>
+      <span class="when">02 Sept 2026, 08:15</span>
+    </summary>
+    <div class="body">
+      
+      <p class="summary">No amendment newer than the held copy.</p>
+      
+      
+      <p class="muted">No checks recorded — this run predates check recording.</p>
+    </div>
+  </details>
+  <details class="run">
+    <summary>
+      <span class="doc">SCOMET_List_2025</span><span class="pill muted">no_change</span>
+      <span class="ver">23 Sept 2025 &rarr; —</span>
+      <span class="counts">2030 &rarr; 2030 chunks</span>
+      <span class="checks">0 pass</span>
+      <span class="when">02 Sept 2026, 08:15</span>
+    </summary>
+    <div class="body">
+      
+      <p class="summary">No amendment newer than the held copy.</p>
+      
+      
+      <p class="muted">No checks recorded — this run predates check recording.</p>
+    </div>
+  </details>
+  <details class="run">
+    <summary>
+      <span class="doc">ITAR_Political_Part130</span><span class="pill muted">no_change</span>
+      <span class="ver">06 Sept 2022 &rarr; 06 Sept 2022</span>
+      <span class="counts">52 &rarr; 52 chunks</span>
+      <span class="checks">0 pass</span>
+      <span class="when">02 Sept 2026, 08:15</span>
+    </summary>
+    <div class="body">
+      
+      <p class="summary">No amendment newer than the held copy.</p>
+      
+      
+      <p class="muted">No checks recorded — this run predates check recording.</p>
+    </div>
+  </details>
+  <details class="run">
+    <summary>
+      <span class="doc">FTDR_Act_1992</span><span class="pill muted">no_change</span>
+      <span class="ver">07 Aug 1992 &rarr; —</span>
+      <span class="counts">110 &rarr; 110 chunks</span>
+      <span class="checks">0 pass</span>
+      <span class="when">02 Sept 2026, 08:15</span>
+    </summary>
+    <div class="body">
+      
+      <p class="summary">No amendment newer than the held copy.</p>
+      
+      
+      <p class="muted">No checks recorded — this run predates check recording.</p>
+    </div>
+  </details>
+  <details class="run">
+    <summary>
+      <span class="doc">ITAR_Definitions_Part120</span><span class="pill muted">no_change</span>
+      <span class="ver">28 Aug 2026 &rarr; 28 Aug 2026</span>
+      <span class="counts">200 &rarr; 200 chunks</span>
+      <span class="checks">0 pass</span>
+      <span class="when">02 Sept 2026, 08:15</span>
+    </summary>
+    <div class="body">
+      
+      <p class="summary">No amendment newer than the held copy.</p>
+      
+      
+      <p class="muted">No checks recorded — this run predates check recording.</p>
+    </div>
+  </details>
+  <details class="run">
+    <summary>
+      <span class="doc">BIS_Entity_List_Part744</span><span class="pill muted">no_change</span>
+      <span class="ver">24 Aug 2026 &rarr; 24 Aug 2026</span>
+      <span class="counts">3370 &rarr; 3370 chunks</span>
+      <span class="checks">0 pass</span>
+      <span class="when">02 Sept 2026, 08:15</span>
+    </summary>
+    <div class="body">
+      
+      <p class="summary">No amendment newer than the held copy.</p>
+      
+      
+      <p class="muted">No checks recorded — this run predates check recording.</p>
+    </div>
+  </details>
+  <details class="run">
+    <summary>
+      <span class="doc">ITAR_Registration_Part122</span><span class="pill muted">no_change</span>
+      <span class="ver">08 Jan 2025 &rarr; 08 Jan 2025</span>
+      <span class="counts">39 &rarr; 39 chunks</span>
+      <span class="checks">0 pass</span>
+      <span class="when">02 Sept 2026, 08:15</span>
+    </summary>
+    <div class="body">
+      
+      <p class="summary">No amendment newer than the held copy.</p>
+      
+      
+      <p class="muted">No checks recorded — this run predates check recording.</p>
+    </div>
+  </details>
+  <details class="run">
+    <summary>
+      <span class="doc">EAR_ControlPolicy_Part742</span><span class="pill muted">no_change</span>
+      <span class="ver">23 Jul 2026 &rarr; 23 Jul 2026</span>
+      <span class="counts">508 &rarr; 508 chunks</span>
+      <span class="checks">0 pass</span>
+      <span class="when">02 Sept 2026, 08:15</span>
+    </summary>
+    <div class="body">
+      
+      <p class="summary">No amendment newer than the held copy.</p>
+      
+      
+      <p class="muted">No checks recorded — this run predates check recording.</p>
+    </div>
+  </details>
+  <details class="run">
+    <summary>
+      <span class="doc">EAR_CCL_Part730</span><span class="pill muted">no_change</span>
+      <span class="ver">16 Jul 2026 &rarr; 16 Jul 2026</span>
+      <span class="counts">99 &rarr; 99 chunks</span>
+      <span class="checks">0 pass</span>
+      <span class="when">02 Sept 2026, 08:15</span>
+    </summary>
+    <div class="body">
+      
+      <p class="summary">No amendment newer than the held copy.</p>
+      
+      
+      <p class="muted">No checks recorded — this run predates check recording.</p>
+    </div>
+  </details>
+  <details class="run">
+    <summary>
+      <span class="doc">EAR_Embargoes_Part746</span><span class="pill muted">no_change</span>
+      <span class="ver">23 Jul 2026 &rarr; —</span>
+      <span class="counts">869 &rarr; 869 chunks</span>
+      <span class="checks">0 pass</span>
+      <span class="when">02 Sept 2026, 08:15</span>
+    </summary>
+    <div class="body">
+      
+      <p class="summary">No amendment newer than the held copy.</p>
+      
+      
+      <p class="muted">No checks recorded — this run predates check recording.</p>
+    </div>
+  </details>
+  <details class="run">
+    <summary>
+      <span class="doc">Country_Risk_Reference</span><span class="pill muted">no_change</span>
+      <span class="ver">01 Sept 2025 &rarr; —</span>
+      <span class="counts">9 &rarr; 9 chunks</span>
+      <span class="checks">0 pass</span>
+      <span class="when">02 Sept 2026, 08:15</span>
+    </summary>
+    <div class="body">
+      
+      <p class="summary">No amendment newer than the held copy.</p>
+      
+      
+      <p class="muted">No checks recorded — this run predates check recording.</p>
+    </div>
+  </details>
+  <details class="run">
+    <summary>
+      <span class="doc">EAR_CCL_Part736</span><span class="pill muted">no_change</span>
+      <span class="ver">16 Jul 2026 &rarr; 16 Jul 2026</span>
+      <span class="counts">91 &rarr; 91 chunks</span>
+      <span class="checks">0 pass</span>
+      <span class="when">02 Sept 2026, 08:15</span>
+    </summary>
+    <div class="body">
+      
+      <p class="summary">No amendment newer than the held copy.</p>
+      
+      
+      <p class="muted">No checks recorded — this run predates check recording.</p>
+    </div>
+  </details>
+  <details class="run">
+    <summary>
+      <span class="doc">EAR_Enforcement_Part764</span><span class="pill muted">no_change</span>
+      <span class="ver">17 Oct 2024 &rarr; —</span>
+      <span class="counts">138 &rarr; 138 chunks</span>
+      <span class="checks">0 pass</span>
+      <span class="when">02 Sept 2026, 08:15</span>
+    </summary>
+    <div class="body">
+      
+      <p class="summary">No amendment newer than the held copy.</p>
+      
+      
+      <p class="muted">No checks recorded — this run predates check recording.</p>
+    </div>
+  </details>
+  <details class="run">
+    <summary>
+      <span class="doc">CHIPS_Act_Guardrails</span><span class="pill muted">no_change</span>
+      <span class="ver">25 Sept 2023 &rarr; —</span>
+      <span class="counts">378 &rarr; 378 chunks</span>
+      <span class="checks">0 pass</span>
+      <span class="when">02 Sept 2026, 08:15</span>
+    </summary>
+    <div class="body">
+      
+      <p class="summary">No amendment newer than the held copy.</p>
+      
+      
+      <p class="muted">No checks recorded — this run predates check recording.</p>
+    </div>
+  </details>
+  <details class="run" open>
+    <summary>
+      <span class="doc">ITAR_USML_Part121</span><span class="pill warn">delegated</span>
+      <span class="ver">23 Jul 2026 &rarr; 30 Aug 2026</span>
+      <span class="counts">539 &rarr; — chunks</span>
+      <span class="checks">2 pass &middot; <b class="bad">1 fail</b></span>
+      <span class="when">02 Sept 2026, 08:15</span>
+    </summary>
+    <div class="body">
+      <p class="route"><b>Executed by:</b> delegated_worker<br><span class="why">Produces 540 chunks, above the 300-chunk inline limit. n8n Cloud stalls on sustained vector inserts, so this is handed to the worker (agent/backfill.mjs --pending).</span></p>
+      <p class="summary">Change detected and verified, but this document is too large for n8n to ingest safely. Queued for the worker.</p>
+      
+      
+      <div class="tblwrap"><table>
+        <thead><tr><th></th><th>Check</th><th>Expected</th><th>Actual</th><th>Why it matters</th></tr></thead>
+        <tbody>
+      <tr class="c-pass">
+        <td><span class="tick ok">PASS</span></td>
+        <td>change detected</td><td class="num">newer version</td><td class="num">2026-08-30</td>
+        <td class="detail"></td>
+      </tr>
+      <tr class="c-pass">
+        <td><span class="tick ok">PASS</span></td>
+        <td>chunk count within band</td><td class="num">260-1200</td><td class="num">540</td>
+        <td class="detail"></td>
+      </tr>
+      <tr class="c-fail">
+        <td><span class="tick bad">FAIL</span></td>
+        <td>executor capable of this size</td><td class="num">&lt;= 300 chunks for n8n</td><td class="num">540 chunks</td>
+        <td class="detail">Handed to the worker rather than attempted here.</td>
+      </tr></tbody></table></div>
+    </div>
+  </details>
+  <details class="run">
+    <summary>
+      <span class="doc">ITAR_Definitions_Part120</span><span class="pill muted">no_change</span>
+      <span class="ver">28 Aug 2026 &rarr; 28 Aug 2026</span>
+      <span class="counts">200 &rarr; 200 chunks</span>
+      <span class="checks">0 pass</span>
+      <span class="when">02 Sept 2026, 08:11</span>
+    </summary>
+    <div class="body">
+      
+      <p class="summary">No amendment newer than the held copy.</p>
+      
+      
+      <p class="muted">No checks recorded — this run predates check recording.</p>
+    </div>
+  </details>
+  <details class="run">
+    <summary>
+      <span class="doc">EAR_CCL_Part774</span><span class="pill muted">no_change</span>
+      <span class="ver">28 Aug 2026 &rarr; 28 Aug 2026</span>
+      <span class="counts">3779 &rarr; 3779 chunks</span>
+      <span class="checks">0 pass</span>
+      <span class="when">02 Sept 2026, 08:11</span>
+    </summary>
+    <div class="body">
+      
+      <p class="summary">No amendment newer than the held copy.</p>
+      
+      
+      <p class="muted">No checks recorded — this run predates check recording.</p>
+    </div>
+  </details>
+  <details class="run">
+    <summary>
+      <span class="doc">ITAR_Registration_Part122</span><span class="pill muted">no_change</span>
+      <span class="ver">08 Jan 2025 &rarr; 08 Jan 2025</span>
+      <span class="counts">39 &rarr; 39 chunks</span>
+      <span class="checks">0 pass</span>
+      <span class="when">02 Sept 2026, 08:11</span>
+    </summary>
+    <div class="body">
+      
+      <p class="summary">No amendment newer than the held copy.</p>
+      
+      
+      <p class="muted">No checks recorded — this run predates check recording.</p>
+    </div>
+  </details>
+  <details class="run">
+    <summary>
+      <span class="doc">EAR_CCL_Part736</span><span class="pill muted">no_change</span>
+      <span class="ver">16 Jul 2026 &rarr; 16 Jul 2026</span>
+      <span class="counts">91 &rarr; 91 chunks</span>
+      <span class="checks">0 pass</span>
+      <span class="when">02 Sept 2026, 08:11</span>
+    </summary>
+    <div class="body">
+      
+      <p class="summary">No amendment newer than the held copy.</p>
+      
+      
+      <p class="muted">No checks recorded — this run predates check recording.</p>
+    </div>
+  </details>
   <details class="run">
     <summary>
       <span class="doc">EAR_CCL_Part774</span><span class="pill muted">no_change</span>
@@ -1727,646 +2410,7 @@ color:var(--faint);font-size:12px;font-family:ui-monospace,Menlo,monospace}
       <p class="muted">No checks recorded — this run predates check recording.</p>
     </div>
   </details>
-  <details class="run">
-    <summary>
-      <span class="doc">EAR_Embargoes_Part746</span><span class="pill muted">no_change</span>
-      <span class="ver">23 Jul 2026 &rarr; 23 Jul 2026</span>
-      <span class="counts">869 &rarr; 869 chunks</span>
-      <span class="checks">0 pass</span>
-      <span class="when">30 Aug 2026, 09:34</span>
-    </summary>
-    <div class="body">
-      
-      <p class="summary">No amendment newer than the held copy.</p>
-      
-      
-      <p class="muted">No checks recorded — this run predates check recording.</p>
-    </div>
-  </details>
-  <details class="run">
-    <summary>
-      <span class="doc">FTDR_Act_1992</span><span class="pill muted">no_change</span>
-      <span class="ver">07 Aug 1992 &rarr; —</span>
-      <span class="counts">110 &rarr; 110 chunks</span>
-      <span class="checks">0 pass</span>
-      <span class="when">30 Aug 2026, 09:34</span>
-    </summary>
-    <div class="body">
-      
-      <p class="summary">No amendment newer than the held copy.</p>
-      
-      
-      <p class="muted">No checks recorded — this run predates check recording.</p>
-    </div>
-  </details>
-  <details class="run">
-    <summary>
-      <span class="doc">EAR_Enforcement_Part764</span><span class="pill muted">no_change</span>
-      <span class="ver">17 Oct 2024 &rarr; —</span>
-      <span class="counts">138 &rarr; 138 chunks</span>
-      <span class="checks">0 pass</span>
-      <span class="when">30 Aug 2026, 09:34</span>
-    </summary>
-    <div class="body">
-      
-      <p class="summary">No amendment newer than the held copy.</p>
-      
-      
-      <p class="muted">No checks recorded — this run predates check recording.</p>
-    </div>
-  </details>
-  <details class="run">
-    <summary>
-      <span class="doc">EAR_CCL_Part736</span><span class="pill muted">no_change</span>
-      <span class="ver">16 Jul 2026 &rarr; 16 Jul 2026</span>
-      <span class="counts">91 &rarr; 91 chunks</span>
-      <span class="checks">0 pass</span>
-      <span class="when">30 Aug 2026, 09:34</span>
-    </summary>
-    <div class="body">
-      
-      <p class="summary">No amendment newer than the held copy.</p>
-      
-      
-      <p class="muted">No checks recorded — this run predates check recording.</p>
-    </div>
-  </details>
-  <details class="run">
-    <summary>
-      <span class="doc">Country_Risk_Reference</span><span class="pill muted">no_change</span>
-      <span class="ver">01 Sept 2025 &rarr; —</span>
-      <span class="counts">9 &rarr; 9 chunks</span>
-      <span class="checks">0 pass</span>
-      <span class="when">30 Aug 2026, 09:34</span>
-    </summary>
-    <div class="body">
-      
-      <p class="summary">No amendment newer than the held copy.</p>
-      
-      
-      <p class="muted">No checks recorded — this run predates check recording.</p>
-    </div>
-  </details>
-  <details class="run">
-    <summary>
-      <span class="doc">BIS_Entity_List_Part744</span><span class="pill ok">ingested</span>
-      <span class="ver">05 Mar 2026 &rarr; 24 Aug 2026</span>
-      <span class="counts">17734 &rarr; 3370 chunks</span>
-      <span class="checks">12 pass</span>
-      <span class="when">30 Aug 2026, 08:52</span>
-    </summary>
-    <div class="body">
-      <p class="route"><b>Executed by:</b> worker_direct &middot; 498.1s<br><span class="why">Estimated up to 8000 chunks, above the 300-chunk inline limit. n8n Cloud stalls on sustained vector inserts, so bulk work runs on the worker.</span></p>
-      <p class="summary">Re-ingested from eCFR. 4 substantive section change(s).</p>
-      
-      
-      <div class="tblwrap"><table>
-        <thead><tr><th></th><th>Check</th><th>Expected</th><th>Actual</th><th>Why it matters</th></tr></thead>
-        <tbody>
-      <tr class="c-pass">
-        <td><span class="tick ok">PASS</span></td>
-        <td>change source reachable</td><td class="num">eCFR responds</td><td class="num">responded</td>
-        <td class="detail"></td>
-      </tr>
-      <tr class="c-pass">
-        <td><span class="tick ok">PASS</span></td>
-        <td>version comparison completed</td><td class="num">held vs published resolved</td><td class="num">2026-03-05 vs 2026-08-24</td>
-        <td class="detail">Both versions must resolve before any decision can be trusted.</td>
-      </tr>
-      <tr class="c-pass">
-        <td><span class="tick ok">PASS</span></td>
-        <td>newer version available</td><td class="num">newer, or confirmed up to date</td><td class="num">newer: 2026-08-24</td>
-        <td class="detail"></td>
-      </tr>
-      <tr class="c-pass">
-        <td><span class="tick ok">PASS</span></td>
-        <td>change is substantive</td><td class="num">substantive, or correctly skipped</td><td class="num">4 substantive of 5 amended</td>
-        <td class="detail">eCFR flags each section version substantive or not. Editorial-only amendments are recorded and skipped rather than re-embedded, which avoids churning the vector store under answers that were already correct.</td>
-      </tr>
-      <tr class="c-pass">
-        <td><span class="tick ok">PASS</span></td>
-        <td>source document retrieved</td><td class="num">&gt;0 bytes</td><td class="num">2.13 MB</td>
-        <td class="detail"></td>
-      </tr>
-      <tr class="c-pass">
-        <td><span class="tick ok">PASS</span></td>
-        <td>chunk count within band</td><td class="num">1500-8000</td><td class="num">3370</td>
-        <td class="detail"></td>
-      </tr>
-      <tr class="c-pass">
-        <td><span class="tick ok">PASS</span></td>
-        <td>partial-run residue cleared</td><td class="num">0 rows at target version</td><td class="num">3370 removed</td>
-        <td class="detail"></td>
-      </tr>
-      <tr class="c-pass">
-        <td><span class="tick ok">PASS</span></td>
-        <td>embeddings generated</td><td class="num">3370</td><td class="num">3370</td>
-        <td class="detail"></td>
-      </tr>
-      <tr class="c-pass">
-        <td><span class="tick ok">PASS</span></td>
-        <td>embedding dimensions</td><td class="num">768</td><td class="num">768</td>
-        <td class="detail">Must match the vector(768) column and the rest of the corpus.</td>
-      </tr>
-      <tr class="c-pass">
-        <td><span class="tick ok">PASS</span></td>
-        <td>rows submitted</td><td class="num">3370</td><td class="num">3370</td>
-        <td class="detail"></td>
-      </tr>
-      <tr class="c-pass">
-        <td><span class="tick ok">PASS</span></td>
-        <td>rows verified in database</td><td class="num">3370</td><td class="num">3370</td>
-        <td class="detail"></td>
-      </tr>
-      <tr class="c-pass">
-        <td><span class="tick ok">PASS</span></td>
-        <td>superseded version retired</td><td class="num">3370 rows remain</td><td class="num">3370 remain</td>
-        <td class="detail">Removed 17734 row(s) of the previous version, only after the new one verified.</td>
-      </tr></tbody></table></div>
-    </div>
-  </details>
-  <details class="run">
-    <summary>
-      <span class="doc">ITAR_Violations_Part127</span><span class="pill muted">no_change</span>
-      <span class="ver">10 Jan 2025 &rarr; —</span>
-      <span class="counts">71 &rarr; 71 chunks</span>
-      <span class="checks">0 pass</span>
-      <span class="when">30 Aug 2026, 06:04</span>
-    </summary>
-    <div class="body">
-      
-      <p class="summary">No amendment newer than the held copy.</p>
-      
-      
-      <p class="muted">No checks recorded — this run predates check recording.</p>
-    </div>
-  </details>
-  <details class="run">
-    <summary>
-      <span class="doc">EAR_CCL_Part732</span><span class="pill muted">no_change</span>
-      <span class="ver">16 Jul 2026 &rarr; 16 Jul 2026</span>
-      <span class="counts">153 &rarr; 153 chunks</span>
-      <span class="checks">0 pass</span>
-      <span class="when">30 Aug 2026, 06:04</span>
-    </summary>
-    <div class="body">
-      
-      <p class="summary">No amendment newer than the held copy.</p>
-      
-      
-      <p class="muted">No checks recorded — this run predates check recording.</p>
-    </div>
-  </details>
-  <details class="run">
-    <summary>
-      <span class="doc">ITAR_USML_Part121</span><span class="pill muted">no_change</span>
-      <span class="ver">23 Jul 2026 &rarr; 23 Jul 2026</span>
-      <span class="counts">539 &rarr; 539 chunks</span>
-      <span class="checks">0 pass</span>
-      <span class="when">30 Aug 2026, 06:04</span>
-    </summary>
-    <div class="body">
-      
-      <p class="summary">No amendment newer than the held copy.</p>
-      
-      
-      <p class="muted">No checks recorded — this run predates check recording.</p>
-    </div>
-  </details>
-  <details class="run">
-    <summary>
-      <span class="doc">ITAR_TechData_Part125</span><span class="pill muted">no_change</span>
-      <span class="ver">06 Sept 2022 &rarr; —</span>
-      <span class="counts">46 &rarr; 46 chunks</span>
-      <span class="checks">0 pass</span>
-      <span class="when">30 Aug 2026, 06:04</span>
-    </summary>
-    <div class="body">
-      
-      <p class="summary">No amendment newer than the held copy.</p>
-      
-      
-      <p class="muted">No checks recorded — this run predates check recording.</p>
-    </div>
-  </details>
-  <details class="run">
-    <summary>
-      <span class="doc">EAR_CCL_Part738</span><span class="pill muted">no_change</span>
-      <span class="ver">05 Mar 2026 &rarr; 30 Sept 2025</span>
-      <span class="counts">244 &rarr; 244 chunks</span>
-      <span class="checks">0 pass</span>
-      <span class="when">30 Aug 2026, 06:04</span>
-    </summary>
-    <div class="body">
-      
-      <p class="summary">No amendment newer than the held copy.</p>
-      
-      
-      <p class="muted">No checks recorded — this run predates check recording.</p>
-    </div>
-  </details>
-  <details class="run">
-    <summary>
-      <span class="doc">ITAR_Registration_Part122</span><span class="pill muted">no_change</span>
-      <span class="ver">08 Jan 2025 &rarr; 08 Jan 2025</span>
-      <span class="counts">39 &rarr; 39 chunks</span>
-      <span class="checks">0 pass</span>
-      <span class="when">30 Aug 2026, 06:04</span>
-    </summary>
-    <div class="body">
-      
-      <p class="summary">No amendment newer than the held copy.</p>
-      
-      
-      <p class="muted">No checks recorded — this run predates check recording.</p>
-    </div>
-  </details>
-  <details class="run">
-    <summary>
-      <span class="doc">ITAR_Licenses_Part123</span><span class="pill muted">no_change</span>
-      <span class="ver">03 Sept 2024 &rarr; 03 Sept 2024</span>
-      <span class="counts">150 &rarr; 150 chunks</span>
-      <span class="checks">0 pass</span>
-      <span class="when">30 Aug 2026, 06:04</span>
-    </summary>
-    <div class="body">
-      
-      <p class="summary">No amendment newer than the held copy.</p>
-      
-      
-      <p class="muted">No checks recorded — this run predates check recording.</p>
-    </div>
-  </details>
-  <details class="run">
-    <summary>
-      <span class="doc">EAR_CCL_Part740</span><span class="pill muted">no_change</span>
-      <span class="ver">14 Aug 2026 &rarr; 14 Aug 2026</span>
-      <span class="counts">844 &rarr; 844 chunks</span>
-      <span class="checks">0 pass</span>
-      <span class="when">30 Aug 2026, 06:04</span>
-    </summary>
-    <div class="body">
-      
-      <p class="summary">No amendment newer than the held copy.</p>
-      
-      
-      <p class="muted">No checks recorded — this run predates check recording.</p>
-    </div>
-  </details>
-  <details class="run">
-    <summary>
-      <span class="doc">ITAR_Procedures_Part128</span><span class="pill muted">no_change</span>
-      <span class="ver">06 Sept 2022 &rarr; 06 Sept 2022</span>
-      <span class="counts">61 &rarr; 61 chunks</span>
-      <span class="checks">0 pass</span>
-      <span class="when">30 Aug 2026, 06:04</span>
-    </summary>
-    <div class="body">
-      
-      <p class="summary">No amendment newer than the held copy.</p>
-      
-      
-      <p class="muted">No checks recorded — this run predates check recording.</p>
-    </div>
-  </details>
-  <details class="run">
-    <summary>
-      <span class="doc">ITAR_Political_Part130</span><span class="pill muted">no_change</span>
-      <span class="ver">06 Sept 2022 &rarr; 06 Sept 2022</span>
-      <span class="counts">52 &rarr; 52 chunks</span>
-      <span class="checks">0 pass</span>
-      <span class="when">30 Aug 2026, 06:04</span>
-    </summary>
-    <div class="body">
-      
-      <p class="summary">No amendment newer than the held copy.</p>
-      
-      
-      <p class="muted">No checks recorded — this run predates check recording.</p>
-    </div>
-  </details>
-  <details class="run">
-    <summary>
-      <span class="doc">FTDR_Act_1992</span><span class="pill muted">no_change</span>
-      <span class="ver">07 Aug 1992 &rarr; —</span>
-      <span class="counts">110 &rarr; 110 chunks</span>
-      <span class="checks">0 pass</span>
-      <span class="when">30 Aug 2026, 06:04</span>
-    </summary>
-    <div class="body">
-      
-      <p class="summary">No amendment newer than the held copy.</p>
-      
-      
-      <p class="muted">No checks recorded — this run predates check recording.</p>
-    </div>
-  </details>
-  <details class="run">
-    <summary>
-      <span class="doc">SCOMET_List_2025</span><span class="pill muted">no_change</span>
-      <span class="ver">23 Sept 2025 &rarr; —</span>
-      <span class="counts">2030 &rarr; 2030 chunks</span>
-      <span class="checks">0 pass</span>
-      <span class="when">30 Aug 2026, 06:04</span>
-    </summary>
-    <div class="body">
-      
-      <p class="summary">No amendment newer than the held copy.</p>
-      
-      
-      <p class="muted">No checks recorded — this run predates check recording.</p>
-    </div>
-  </details>
-  <details class="run">
-    <summary>
-      <span class="doc">ITAR_Agreements_Part124</span><span class="pill muted">no_change</span>
-      <span class="ver">03 Sept 2024 &rarr; 03 Sept 2024</span>
-      <span class="counts">108 &rarr; 108 chunks</span>
-      <span class="checks">0 pass</span>
-      <span class="when">30 Aug 2026, 06:04</span>
-    </summary>
-    <div class="body">
-      
-      <p class="summary">No amendment newer than the held copy.</p>
-      
-      
-      <p class="muted">No checks recorded — this run predates check recording.</p>
-    </div>
-  </details>
-  <details class="run">
-    <summary>
-      <span class="doc">EAR_Embargoes_Part746</span><span class="pill muted">no_change</span>
-      <span class="ver">23 Jul 2026 &rarr; 23 Jul 2026</span>
-      <span class="counts">869 &rarr; 869 chunks</span>
-      <span class="checks">0 pass</span>
-      <span class="when">30 Aug 2026, 06:04</span>
-    </summary>
-    <div class="body">
-      
-      <p class="summary">No amendment newer than the held copy.</p>
-      
-      
-      <p class="muted">No checks recorded — this run predates check recording.</p>
-    </div>
-  </details>
-  <details class="run">
-    <summary>
-      <span class="doc">ITAR_Definitions_Part120</span><span class="pill muted">no_change</span>
-      <span class="ver">07 Jul 2025 &rarr; —</span>
-      <span class="counts">200 &rarr; 200 chunks</span>
-      <span class="checks">0 pass</span>
-      <span class="when">30 Aug 2026, 06:04</span>
-    </summary>
-    <div class="body">
-      
-      <p class="summary">No amendment newer than the held copy.</p>
-      
-      
-      <p class="muted">No checks recorded — this run predates check recording.</p>
-    </div>
-  </details>
-  <details class="run">
-    <summary>
-      <span class="doc">EAR_Applications_Part748</span><span class="pill muted">no_change</span>
-      <span class="ver">15 Jan 2026 &rarr; 15 Jan 2026</span>
-      <span class="counts">582 &rarr; 582 chunks</span>
-      <span class="checks">0 pass</span>
-      <span class="when">30 Aug 2026, 06:04</span>
-    </summary>
-    <div class="body">
-      
-      <p class="summary">No amendment newer than the held copy.</p>
-      
-      
-      <p class="muted">No checks recorded — this run predates check recording.</p>
-    </div>
-  </details>
-  <details class="run">
-    <summary>
-      <span class="doc">EAR_CCL_Part774</span><span class="pill muted">no_change</span>
-      <span class="ver">18 Aug 2026 &rarr; 18 Aug 2026</span>
-      <span class="counts">3779 &rarr; 3779 chunks</span>
-      <span class="checks">0 pass</span>
-      <span class="when">30 Aug 2026, 06:04</span>
-    </summary>
-    <div class="body">
-      
-      <p class="summary">No amendment newer than the held copy.</p>
-      
-      
-      <p class="muted">No checks recorded — this run predates check recording.</p>
-    </div>
-  </details>
-  <details class="run">
-    <summary>
-      <span class="doc">EAR_ControlPolicy_Part742</span><span class="pill muted">no_change</span>
-      <span class="ver">23 Jul 2026 &rarr; 23 Jul 2026</span>
-      <span class="counts">508 &rarr; 508 chunks</span>
-      <span class="checks">0 pass</span>
-      <span class="when">30 Aug 2026, 06:04</span>
-    </summary>
-    <div class="body">
-      
-      <p class="summary">No amendment newer than the held copy.</p>
-      
-      
-      <p class="muted">No checks recorded — this run predates check recording.</p>
-    </div>
-  </details>
-  <details class="run">
-    <summary>
-      <span class="doc">ITAR_Brokering_Part129</span><span class="pill muted">no_change</span>
-      <span class="ver">08 Jan 2025 &rarr; 08 Jan 2025</span>
-      <span class="counts">75 &rarr; 75 chunks</span>
-      <span class="checks">0 pass</span>
-      <span class="when">30 Aug 2026, 06:04</span>
-    </summary>
-    <div class="body">
-      
-      <p class="summary">No amendment newer than the held copy.</p>
-      
-      
-      <p class="muted">No checks recorded — this run predates check recording.</p>
-    </div>
-  </details>
-  <details class="run">
-    <summary>
-      <span class="doc">EAR_CCL_Part730</span><span class="pill muted">no_change</span>
-      <span class="ver">16 Jul 2026 &rarr; 16 Jul 2026</span>
-      <span class="counts">99 &rarr; 99 chunks</span>
-      <span class="checks">0 pass</span>
-      <span class="when">30 Aug 2026, 06:04</span>
-    </summary>
-    <div class="body">
-      
-      <p class="summary">No amendment newer than the held copy.</p>
-      
-      
-      <p class="muted">No checks recorded — this run predates check recording.</p>
-    </div>
-  </details>
-  <details class="run">
-    <summary>
-      <span class="doc">EAR_CCL_Part734</span><span class="pill muted">no_change</span>
-      <span class="ver">05 Mar 2026 &rarr; 12 Nov 2025</span>
-      <span class="counts">325 &rarr; 325 chunks</span>
-      <span class="checks">0 pass</span>
-      <span class="when">30 Aug 2026, 06:04</span>
-    </summary>
-    <div class="body">
-      
-      <p class="summary">No amendment newer than the held copy.</p>
-      
-      
-      <p class="muted">No checks recorded — this run predates check recording.</p>
-    </div>
-  </details>
-  <details class="run">
-    <summary>
-      <span class="doc">CHIPS_Act_Guardrails</span><span class="pill muted">no_change</span>
-      <span class="ver">25 Sept 2023 &rarr; —</span>
-      <span class="counts">378 &rarr; 378 chunks</span>
-      <span class="checks">0 pass</span>
-      <span class="when">30 Aug 2026, 06:04</span>
-    </summary>
-    <div class="body">
-      
-      <p class="summary">No amendment newer than the held copy.</p>
-      
-      
-      <p class="muted">No checks recorded — this run predates check recording.</p>
-    </div>
-  </details>
-  <details class="run">
-    <summary>
-      <span class="doc">EAR_CCL_Part736</span><span class="pill muted">no_change</span>
-      <span class="ver">16 Jul 2026 &rarr; 16 Jul 2026</span>
-      <span class="counts">91 &rarr; 91 chunks</span>
-      <span class="checks">0 pass</span>
-      <span class="when">30 Aug 2026, 06:04</span>
-    </summary>
-    <div class="body">
-      
-      <p class="summary">No amendment newer than the held copy.</p>
-      
-      
-      <p class="muted">No checks recorded — this run predates check recording.</p>
-    </div>
-  </details>
-  <details class="run">
-    <summary>
-      <span class="doc">ITAR_Policies_Part126</span><span class="pill muted">no_change</span>
-      <span class="ver">30 Dec 2025 &rarr; 30 Dec 2025</span>
-      <span class="counts">439 &rarr; 439 chunks</span>
-      <span class="checks">0 pass</span>
-      <span class="when">30 Aug 2026, 06:04</span>
-    </summary>
-    <div class="body">
-      
-      <p class="summary">No amendment newer than the held copy.</p>
-      
-      
-      <p class="muted">No checks recorded — this run predates check recording.</p>
-    </div>
-  </details>
-  <details class="run">
-    <summary>
-      <span class="doc">BIS_InterimRule_Jan2025</span><span class="pill muted">no_change</span>
-      <span class="ver">13 Jan 2025 &rarr; —</span>
-      <span class="counts">639 &rarr; 639 chunks</span>
-      <span class="checks">0 pass</span>
-      <span class="when">30 Aug 2026, 06:04</span>
-    </summary>
-    <div class="body">
-      
-      <p class="summary">No amendment newer than the held copy.</p>
-      
-      
-      <p class="muted">No checks recorded — this run predates check recording.</p>
-    </div>
-  </details>
-  <details class="run">
-    <summary>
-      <span class="doc">EAR_Enforcement_Part764</span><span class="pill muted">no_change</span>
-      <span class="ver">17 Oct 2024 &rarr; 17 Oct 2024</span>
-      <span class="counts">138 &rarr; 138 chunks</span>
-      <span class="checks">0 pass</span>
-      <span class="when">30 Aug 2026, 06:04</span>
-    </summary>
-    <div class="body">
-      
-      <p class="summary">No amendment newer than the held copy.</p>
-      
-      
-      <p class="muted">No checks recorded — this run predates check recording.</p>
-    </div>
-  </details>
-  <details class="run">
-    <summary>
-      <span class="doc">Country_Risk_Reference</span><span class="pill muted">no_change</span>
-      <span class="ver">01 Sept 2025 &rarr; —</span>
-      <span class="counts">9 &rarr; 9 chunks</span>
-      <span class="checks">0 pass</span>
-      <span class="when">30 Aug 2026, 06:04</span>
-    </summary>
-    <div class="body">
-      
-      <p class="summary">No amendment newer than the held copy.</p>
-      
-      
-      <p class="muted">No checks recorded — this run predates check recording.</p>
-    </div>
-  </details>
-  <details class="run" open>
-    <summary>
-      <span class="doc">BIS_Entity_List_Part744</span><span class="pill warn">delegated</span>
-      <span class="ver">05 Mar 2026 &rarr; 24 Aug 2026</span>
-      <span class="counts">17734 &rarr; — chunks</span>
-      <span class="checks">2 pass &middot; <b class="bad">1 fail</b></span>
-      <span class="when">30 Aug 2026, 06:04</span>
-    </summary>
-    <div class="body">
-      <p class="route"><b>Executed by:</b> delegated_worker<br><span class="why">Produces 3370 chunks, above the 300-chunk inline limit. n8n Cloud stalls on sustained vector inserts, so this is handed to the worker (agent/backfill.mjs --pending).</span></p>
-      <p class="summary">Change detected and verified, but this document is too large for n8n to ingest safely. Queued for the worker.</p>
-      
-      
-      <div class="tblwrap"><table>
-        <thead><tr><th></th><th>Check</th><th>Expected</th><th>Actual</th><th>Why it matters</th></tr></thead>
-        <tbody>
-      <tr class="c-pass">
-        <td><span class="tick ok">PASS</span></td>
-        <td>change detected</td><td class="num">newer version</td><td class="num">2026-08-24</td>
-        <td class="detail"></td>
-      </tr>
-      <tr class="c-pass">
-        <td><span class="tick ok">PASS</span></td>
-        <td>chunk count within band</td><td class="num">1500-8000</td><td class="num">3370</td>
-        <td class="detail"></td>
-      </tr>
-      <tr class="c-fail">
-        <td><span class="tick bad">FAIL</span></td>
-        <td>executor capable of this size</td><td class="num">&lt;= 300 chunks for n8n</td><td class="num">3370 chunks</td>
-        <td class="detail">Handed to the worker rather than attempted here.</td>
-      </tr></tbody></table></div>
-    </div>
-  </details>
-  <details class="run">
-    <summary>
-      <span class="doc">EAR_CCL_Part740</span><span class="pill muted">no_change</span>
-      <span class="ver">14 Aug 2026 &rarr; 14 Aug 2026</span>
-      <span class="counts">844 &rarr; 844 chunks</span>
-      <span class="checks">0 pass</span>
-      <span class="when">30 Aug 2026, 06:03</span>
-    </summary>
-    <div class="body">
-      
-      <p class="summary">No amendment newer than the held copy.</p>
-      
-      
-      <p class="muted">No checks recorded — this run predates check recording.</p>
-    </div>
-  </details>
 
-<footer>Generated 02/09/2026, 05:23:21 from corpus_registry, ingestion_runs and a live eCFR check.<br>
+<footer>Generated 02/09/2026, 08:16:49 from corpus_registry, ingestion_runs and a live eCFR check.<br>
 Glosilex Regulatory Corpus Sentinel.</footer>
 </div></body></html>
