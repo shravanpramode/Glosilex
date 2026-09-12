@@ -496,8 +496,122 @@ color:var(--faint);font-size:12px;font-family:ui-monospace,Menlo,monospace}
   <tr class="reason-row"><td colspan="7"><span class="rlabel">Why:</span> DGFT (Directorate General of Foreign Trade) offers no API, so freshness cannot be established automatically. Last confirmed null days ago against a 30-day cadence — a human needs to check the source now.</td></tr></tbody></table></div>
 
 <h2>Run history</h2>
-<p class="h2note">60 checks recorded across 100 runs.</p>
+<p class="h2note">64 checks recorded across 100 runs.</p>
 
+  <details class="run">
+    <summary>
+      <span class="doc">ITAR_USML_Part121</span><span class="pill muted">no_change</span>
+      <span class="ver">30 Aug 2026 &rarr; 30 Aug 2026</span>
+      <span class="counts">540 &rarr; 540 chunks</span>
+      <span class="checks">2 pass &middot; 2 skip</span>
+      <span class="when">12 Sept 2026, 05:20</span>
+    </summary>
+    <div class="body">
+      <p class="route"><b>Executed by:</b> worker_direct &middot; 0.1s<br><span class="why">Estimated up to 1200 chunks, above the 300-chunk inline limit. n8n Cloud stalls on sustained vector inserts, so bulk work runs on the worker.</span></p>
+      <p class="summary">No amendment newer than the held copy.</p>
+      
+      
+      <div class="tblwrap"><table>
+        <thead><tr><th></th><th>Check</th><th>Expected</th><th>Actual</th><th>Why it matters</th></tr></thead>
+        <tbody>
+      <tr class="c-pass">
+        <td><span class="tick ok">PASS</span></td>
+        <td>change source reachable</td><td class="num">eCFR responds</td><td class="num">responded</td>
+        <td class="detail"></td>
+      </tr>
+      <tr class="c-pass">
+        <td><span class="tick ok">PASS</span></td>
+        <td>version comparison completed</td><td class="num">held vs published resolved</td><td class="num">2026-08-30 vs 2026-08-30</td>
+        <td class="detail">Both versions must resolve before any decision can be trusted.</td>
+      </tr>
+      <tr class="c-skip">
+        <td><span class="tick muted">SKIP</span></td>
+        <td>newer version available</td><td class="num">newer, or confirmed up to date</td><td class="num">already current</td>
+        <td class="detail">No amendment newer than the copy held. Nothing to do.</td>
+      </tr>
+      <tr class="c-skip">
+        <td><span class="tick muted">SKIP</span></td>
+        <td>change is substantive</td><td class="num">substantive, or correctly skipped</td><td class="num">0 substantive of 0 amended</td>
+        <td class="detail">eCFR flags each section version substantive or not. Editorial-only amendments are recorded and skipped rather than re-embedded, which avoids churning the vector store under answers that were already correct.</td>
+      </tr></tbody></table></div>
+    </div>
+  </details>
+  <details class="run">
+    <summary>
+      <span class="doc">EAR_CCL_Part774</span><span class="pill muted">no_change</span>
+      <span class="ver">28 Aug 2026 &rarr; 28 Aug 2026</span>
+      <span class="counts">3779 &rarr; 3779 chunks</span>
+      <span class="checks">2 pass &middot; 2 skip</span>
+      <span class="when">12 Sept 2026, 05:20</span>
+    </summary>
+    <div class="body">
+      <p class="route"><b>Executed by:</b> worker_direct &middot; 0.1s<br><span class="why">Estimated up to 9000 chunks, above the 300-chunk inline limit. n8n Cloud stalls on sustained vector inserts, so bulk work runs on the worker.</span></p>
+      <p class="summary">No amendment newer than the held copy.</p>
+      
+      
+      <div class="tblwrap"><table>
+        <thead><tr><th></th><th>Check</th><th>Expected</th><th>Actual</th><th>Why it matters</th></tr></thead>
+        <tbody>
+      <tr class="c-pass">
+        <td><span class="tick ok">PASS</span></td>
+        <td>change source reachable</td><td class="num">eCFR responds</td><td class="num">responded</td>
+        <td class="detail"></td>
+      </tr>
+      <tr class="c-pass">
+        <td><span class="tick ok">PASS</span></td>
+        <td>version comparison completed</td><td class="num">held vs published resolved</td><td class="num">2026-08-28 vs 2026-08-28</td>
+        <td class="detail">Both versions must resolve before any decision can be trusted.</td>
+      </tr>
+      <tr class="c-skip">
+        <td><span class="tick muted">SKIP</span></td>
+        <td>newer version available</td><td class="num">newer, or confirmed up to date</td><td class="num">already current</td>
+        <td class="detail">No amendment newer than the copy held. Nothing to do.</td>
+      </tr>
+      <tr class="c-skip">
+        <td><span class="tick muted">SKIP</span></td>
+        <td>change is substantive</td><td class="num">substantive, or correctly skipped</td><td class="num">0 substantive of 0 amended</td>
+        <td class="detail">eCFR flags each section version substantive or not. Editorial-only amendments are recorded and skipped rather than re-embedded, which avoids churning the vector store under answers that were already correct.</td>
+      </tr></tbody></table></div>
+    </div>
+  </details>
+  <details class="run">
+    <summary>
+      <span class="doc">BIS_Entity_List_Part744</span><span class="pill muted">no_change</span>
+      <span class="ver">24 Aug 2026 &rarr; 24 Aug 2026</span>
+      <span class="counts">3370 &rarr; 3370 chunks</span>
+      <span class="checks">2 pass &middot; 2 skip</span>
+      <span class="when">12 Sept 2026, 05:20</span>
+    </summary>
+    <div class="body">
+      <p class="route"><b>Executed by:</b> worker_direct &middot; 0.2s<br><span class="why">Estimated up to 8000 chunks, above the 300-chunk inline limit. n8n Cloud stalls on sustained vector inserts, so bulk work runs on the worker.</span></p>
+      <p class="summary">No amendment newer than the held copy.</p>
+      
+      
+      <div class="tblwrap"><table>
+        <thead><tr><th></th><th>Check</th><th>Expected</th><th>Actual</th><th>Why it matters</th></tr></thead>
+        <tbody>
+      <tr class="c-pass">
+        <td><span class="tick ok">PASS</span></td>
+        <td>change source reachable</td><td class="num">eCFR responds</td><td class="num">responded</td>
+        <td class="detail"></td>
+      </tr>
+      <tr class="c-pass">
+        <td><span class="tick ok">PASS</span></td>
+        <td>version comparison completed</td><td class="num">held vs published resolved</td><td class="num">2026-08-24 vs 2026-08-24</td>
+        <td class="detail">Both versions must resolve before any decision can be trusted.</td>
+      </tr>
+      <tr class="c-skip">
+        <td><span class="tick muted">SKIP</span></td>
+        <td>newer version available</td><td class="num">newer, or confirmed up to date</td><td class="num">already current</td>
+        <td class="detail">No amendment newer than the copy held. Nothing to do.</td>
+      </tr>
+      <tr class="c-skip">
+        <td><span class="tick muted">SKIP</span></td>
+        <td>change is substantive</td><td class="num">substantive, or correctly skipped</td><td class="num">0 substantive of 0 amended</td>
+        <td class="detail">eCFR flags each section version substantive or not. Editorial-only amendments are recorded and skipped rather than re-embedded, which avoids churning the vector store under answers that were already correct.</td>
+      </tr></tbody></table></div>
+    </div>
+  </details>
   <details class="run">
     <summary>
       <span class="doc">ITAR_USML_Part121</span><span class="pill muted">no_change</span>
@@ -2336,99 +2450,7 @@ color:var(--faint);font-size:12px;font-family:ui-monospace,Menlo,monospace}
       </tr></tbody></table></div>
     </div>
   </details>
-  <details class="run">
-    <summary>
-      <span class="doc">EAR_CCL_Part774</span><span class="pill muted">no_change</span>
-      <span class="ver">28 Aug 2026 &rarr; 28 Aug 2026</span>
-      <span class="counts">3779 &rarr; 3779 chunks</span>
-      <span class="checks">2 pass &middot; 2 skip</span>
-      <span class="when">07 Sept 2026, 05:37</span>
-    </summary>
-    <div class="body">
-      <p class="route"><b>Executed by:</b> worker_direct &middot; 0.1s<br><span class="why">Estimated up to 9000 chunks, above the 300-chunk inline limit. n8n Cloud stalls on sustained vector inserts, so bulk work runs on the worker.</span></p>
-      <p class="summary">No amendment newer than the held copy.</p>
-      
-      
-      <div class="tblwrap"><table>
-        <thead><tr><th></th><th>Check</th><th>Expected</th><th>Actual</th><th>Why it matters</th></tr></thead>
-        <tbody>
-      <tr class="c-pass">
-        <td><span class="tick ok">PASS</span></td>
-        <td>change source reachable</td><td class="num">eCFR responds</td><td class="num">responded</td>
-        <td class="detail"></td>
-      </tr>
-      <tr class="c-pass">
-        <td><span class="tick ok">PASS</span></td>
-        <td>version comparison completed</td><td class="num">held vs published resolved</td><td class="num">2026-08-28 vs 2026-08-28</td>
-        <td class="detail">Both versions must resolve before any decision can be trusted.</td>
-      </tr>
-      <tr class="c-skip">
-        <td><span class="tick muted">SKIP</span></td>
-        <td>newer version available</td><td class="num">newer, or confirmed up to date</td><td class="num">already current</td>
-        <td class="detail">No amendment newer than the copy held. Nothing to do.</td>
-      </tr>
-      <tr class="c-skip">
-        <td><span class="tick muted">SKIP</span></td>
-        <td>change is substantive</td><td class="num">substantive, or correctly skipped</td><td class="num">0 substantive of 0 amended</td>
-        <td class="detail">eCFR flags each section version substantive or not. Editorial-only amendments are recorded and skipped rather than re-embedded, which avoids churning the vector store under answers that were already correct.</td>
-      </tr></tbody></table></div>
-    </div>
-  </details>
-  <details class="run">
-    <summary>
-      <span class="doc">BIS_Entity_List_Part744</span><span class="pill muted">no_change</span>
-      <span class="ver">24 Aug 2026 &rarr; 24 Aug 2026</span>
-      <span class="counts">3370 &rarr; 3370 chunks</span>
-      <span class="checks">2 pass &middot; 2 skip</span>
-      <span class="when">07 Sept 2026, 05:37</span>
-    </summary>
-    <div class="body">
-      <p class="route"><b>Executed by:</b> worker_direct &middot; 0.2s<br><span class="why">Estimated up to 8000 chunks, above the 300-chunk inline limit. n8n Cloud stalls on sustained vector inserts, so bulk work runs on the worker.</span></p>
-      <p class="summary">No amendment newer than the held copy.</p>
-      
-      
-      <div class="tblwrap"><table>
-        <thead><tr><th></th><th>Check</th><th>Expected</th><th>Actual</th><th>Why it matters</th></tr></thead>
-        <tbody>
-      <tr class="c-pass">
-        <td><span class="tick ok">PASS</span></td>
-        <td>change source reachable</td><td class="num">eCFR responds</td><td class="num">responded</td>
-        <td class="detail"></td>
-      </tr>
-      <tr class="c-pass">
-        <td><span class="tick ok">PASS</span></td>
-        <td>version comparison completed</td><td class="num">held vs published resolved</td><td class="num">2026-08-24 vs 2026-08-24</td>
-        <td class="detail">Both versions must resolve before any decision can be trusted.</td>
-      </tr>
-      <tr class="c-skip">
-        <td><span class="tick muted">SKIP</span></td>
-        <td>newer version available</td><td class="num">newer, or confirmed up to date</td><td class="num">already current</td>
-        <td class="detail">No amendment newer than the copy held. Nothing to do.</td>
-      </tr>
-      <tr class="c-skip">
-        <td><span class="tick muted">SKIP</span></td>
-        <td>change is substantive</td><td class="num">substantive, or correctly skipped</td><td class="num">0 substantive of 0 amended</td>
-        <td class="detail">eCFR flags each section version substantive or not. Editorial-only amendments are recorded and skipped rather than re-embedded, which avoids churning the vector store under answers that were already correct.</td>
-      </tr></tbody></table></div>
-    </div>
-  </details>
-  <details class="run">
-    <summary>
-      <span class="doc">ITAR_Registration_Part122</span><span class="pill muted">no_change</span>
-      <span class="ver">08 Jan 2025 &rarr; —</span>
-      <span class="counts">39 &rarr; 39 chunks</span>
-      <span class="checks">0 pass</span>
-      <span class="when">07 Sept 2026, 00:30</span>
-    </summary>
-    <div class="body">
-      
-      <p class="summary">No amendment newer than the held copy.</p>
-      
-      
-      <p class="muted">No checks recorded — this run predates check recording.</p>
-    </div>
-  </details>
 
-<footer>Generated 11/09/2026, 05:34:38 from corpus_registry, ingestion_runs and a live eCFR check.<br>
+<footer>Generated 12/09/2026, 05:20:39 from corpus_registry, ingestion_runs and a live eCFR check.<br>
 Glosilex Regulatory Corpus Sentinel.</footer>
 </div></body></html>
